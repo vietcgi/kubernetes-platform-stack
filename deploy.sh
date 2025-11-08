@@ -54,10 +54,19 @@ sleep 5
 
 # Step 2.5: Install Cilium CNI (REQUIRED - cluster has disableDefaultCNI and kubeProxyMode=none)
 log_info "Installing Cilium CNI (required for network functionality)..."
+# Preload Cilium image to speed up initialization (per Cilium/KIND docs)
+CILIUM_VERSION="1.18.3"
+CILIUM_IMAGE="quay.io/cilium/cilium:${CILIUM_VERSION}"
+log_info "Preloading Cilium image ${CILIUM_IMAGE}..."
+docker pull "${CILIUM_IMAGE}" 2>&1 | grep -E "Pulling|Downloaded|Already" | tail -3
+kind load docker-image "${CILIUM_IMAGE}" --name "$CLUSTER_NAME" 2>&1 | tail -2
+
 helm repo add cilium https://helm.cilium.io 2>/dev/null || true
 helm repo update cilium 2>/dev/null || true
-helm install cilium cilium/cilium \
+helm install cilium cilium/cilium --version "${CILIUM_VERSION}" \
   --namespace kube-system \
+  --set image.pullPolicy=IfNotPresent \
+  --set ipam.mode=kubernetes \
   --set kubeProxyReplacement=true \
   --set bpf.masquerade=true \
   --wait --timeout=5m 2>&1 | tail -5
