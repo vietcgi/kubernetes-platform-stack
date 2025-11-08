@@ -236,7 +236,7 @@ jobs:
         env:
           KUBECONFIG: /tmp/kind/kubeconfig
         run: |
-          echo "✓ Testing Cilium network..."
+          echo "Testing Cilium network..."
           kubectl -n kube-system exec ds/cilium -- cilium status || echo "Cilium status"
           kubectl get svc -n app || echo "Services"
 
@@ -258,7 +258,7 @@ jobs:
         env:
           KUBECONFIG: /tmp/kind/kubeconfig
         run: |
-          echo "✓ Checking network policies..."
+          echo "Checking network policies..."
           kubectl get ciliumnetworkpolicies -A || echo "Cilium policies"
           kubectl get networkpolicies -A || echo "Network policies"
 
@@ -300,24 +300,21 @@ jobs:
     steps:
       - name: Pipeline Summary
         run: |
-          echo "╔════════════════════════════════════════════════════╗"
-          echo "║  Kubernetes Platform Stack Pipeline Complete! ✅  ║"
-          echo "╚════════════════════════════════════════════════════╝"
+          echo "===================================="
+          echo "Pipeline Complete"
+          echo "===================================="
           echo ""
-          echo "✅ Stages Completed:"
+          echo "Stages Completed:"
           echo "   1. Code Quality & Security Scanning"
-          echo "   2. Docker Image Build & Vulnerability Scan"
+          echo "   2. Docker Image Build & Scan"
           echo "   3. KIND Cluster Provisioning"
-          echo "   4. Cilium CNI + LoadBalancer + BGP"
-          echo "   5. Istio Service Mesh (mTLS + AuthZ)"
-          echo "   6. ArgoCD GitOps"
-          echo "   7. Prometheus + Grafana + Loki + Tempo"
-          echo "   8. Crossplane Infrastructure Automation"
-          echo "   9. Application Deployment"
-          echo "  10. Network Testing"
-          echo "  11. Security Testing"
-          echo "  12. Integration Testing"
+          echo "   4. Cilium CNI Installation"
+          echo "   5. Prometheus + Grafana Installation"
+          echo "   6. Application Deployment via Helm"
+          echo "   7. Network Testing"
+          echo "   8. Security Testing"
+          echo "   9. Integration Testing"
           echo ""
-          echo "💰 Cost: $0 (KIND + GitHub Actions)"
-          echo "⏱️  Time: ~12-15 minutes"
-          echo "🎯 Status: PRODUCTION READY"
+          echo "Cost: $0 (KIND + GitHub Actions)"
+          echo "Time: ~8-10 minutes"
+          echo "Status: WORKING"
