@@ -28,7 +28,7 @@ kind: CiliumLoadBalancerIPPool
 metadata:
   name: default
 spec:
-  cidrs:
+  blocks:
     # For KIND/Docker: Use Docker bridge network (172.18.1.0/24)
     - cidr: "172.18.1.0/24"
     # For Production: Use your network's range (e.g., 192.168.100.0/24)
