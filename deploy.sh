@@ -85,45 +85,7 @@ log_info "Waiting for Cilium to be ready..."
 kubectl wait --for=condition=Ready pod -l k8s-app=cilium -n kube-system --timeout=10m 2>/dev/null || true
 sleep 10
 
-# Step 6: Install Istio base and istiod
-log_info "Installing Istio (v1.28.0) with mTLS..."
-helm install istio-base istio/base \
-  --namespace istio-system \
-  --wait --timeout=5m 2>&1 | tail -5
-
-helm install istiod istio/istiod \
-  --namespace istio-system \
-  --values "$SCRIPT_DIR/helm/istio/values.yaml" \
-  --wait --timeout=5m 2>&1 | tail -5
-
-log_info "Waiting for Istio control plane to be ready..."
-kubectl wait --for=condition=Ready pod -l app=istiod -n istio-system --timeout=5m 2>/dev/null || true
-
-# Step 7: Install Prometheus observability stack
-log_info "Installing Prometheus stack (metrics, logs, traces)..."
-helm install prometheus prometheus-community/kube-prometheus-stack \
-  --namespace monitoring \
-  --values "$SCRIPT_DIR/helm/prometheus/values.yaml" \
-  --wait --timeout=10m 2>&1 | tail -10
-
-log_info "Waiting for Prometheus to be ready..."
-kubectl wait --for=condition=Ready pod -l app.kubernetes.io/name=prometheus -n monitoring --timeout=5m 2>/dev/null || true
-
-# Step 8: Install Loki for log aggregation
-log_info "Installing Loki (log aggregation)..."
-helm install loki "$SCRIPT_DIR/helm/loki" \
-  --namespace monitoring \
-  --values "$SCRIPT_DIR/helm/loki/values.yaml" \
-  --wait --timeout=5m 2>&1 | tail -5
-
-# Step 9: Install Tempo for distributed tracing
-log_info "Installing Tempo (distributed tracing)..."
-helm install tempo "$SCRIPT_DIR/helm/tempo" \
-  --namespace monitoring \
-  --values "$SCRIPT_DIR/helm/tempo/values.yaml" \
-  --wait --timeout=5m 2>&1 | tail -5
-
-# Step 10: Install ArgoCD for GitOps
+# Step 6: Install ArgoCD for GitOps orchestration
 log_info "Installing ArgoCD (v3.2.0) for GitOps..."
 helm install argocd argoproj/argo-cd \
   --namespace argocd \
@@ -134,29 +96,41 @@ log_info "Waiting for ArgoCD to be ready..."
 kubectl wait --for=condition=Ready pod -l app.kubernetes.io/name=argocd-server -n argocd --timeout=5m 2>/dev/null || true
 sleep 10
 
-# Step 11: Build and load Docker image
+# Step 7: Build and load Docker image
 log_info "Building and loading Docker image..."
 docker build -t kubernetes-platform-stack:latest "$SCRIPT_DIR"
 kind load docker-image kubernetes-platform-stack:latest --name "$CLUSTER_NAME"
 
-# Step 12: Install my-app via Helm
-log_info "Installing my-app via Helm..."
-helm install my-app "$SCRIPT_DIR/helm/my-app" \
-  --namespace app \
-  --set image.pullPolicy=Never \
-  --set image.tag=latest \
-  --set autoscaling.minReplicas=1 \
-  --set autoscaling.maxReplicas=3 \
-  --wait --timeout=5m 2>&1 | tail -5
+# Step 8: Create ArgoCD applications (other apps managed by ArgoCD)
+log_info "Creating ArgoCD Application manifests..."
+kubectl apply -f "$SCRIPT_DIR/argocd/applications/" 2>&1 | tail -5
 
+# Step 9: Wait for ArgoCD to sync all applications
+log_info "Waiting for ArgoCD to sync all applications..."
+sleep 5
+for app in "istio" "prometheus" "loki" "tempo" "my-app"; do
+    log_info "Waiting for application: $app"
+    for i in {1..60}; do
+        STATUS=$(kubectl get application $app -n argocd -o jsonpath='{.status.operationState.phase}' 2>/dev/null || echo "")
+        if [ "$STATUS" = "Succeeded" ] || [ "$STATUS" = "" ]; then
+            log_info "Application $app synced"
+            break
+        fi
+        if [ $((i % 10)) -eq 0 ]; then
+            log_info "Still syncing $app... ($i/60)"
+        fi
+        sleep 5
+    done
+done
+
+# Step 10: Verify deployments
+log_info "Verifying ArgoCD applications..."
+kubectl get applications -n argocd -o wide
+
+# Step 11: Test my-app health endpoint
 log_info "Waiting for my-app to be ready..."
-kubectl wait --for=condition=Ready pod -l app.kubernetes.io/name=my-app -n app --timeout=5m 2>/dev/null || true
+kubectl wait --for=condition=Ready pod -l app.kubernetes.io/name=my-app -n app --timeout=10m 2>/dev/null || true
 
-# Step 13: Verify deployments
-log_info "Verifying all Helm releases..."
-helm list -a --all-namespaces
-
-# Step 14: Test health endpoint
 log_info "Testing application health endpoint..."
 sleep 5
 kubectl port-forward -n app svc/my-app 8080:80 > /dev/null 2>&1 &
@@ -165,7 +139,7 @@ HEALTH=$(curl -s http://localhost:8080/health 2>/dev/null || echo "")
 pkill -f "port-forward" || true
 
 if [ -z "$HEALTH" ]; then
-    log_warn "Could not verify health endpoint, but deployment initiated"
+    log_warn "Could not verify health endpoint, but ArgoCD is syncing"
 else
     log_info "Health check passed: $HEALTH"
 fi
@@ -178,10 +152,13 @@ echo "======================================"
 echo ""
 echo "Cluster: $CLUSTER_NAME"
 echo "K8s Version: 1.33.0"
-echo "Status: Running with Helm and ArgoCD GitOps"
+echo "Status: Running with Cilium + ArgoCD GitOps"
 echo ""
-echo "Deployed Applications:"
+echo "Deployed Helm Releases:"
 helm list -a --all-namespaces
+echo ""
+echo "ArgoCD-Managed Applications:"
+kubectl get applications -n argocd --no-headers 2>/dev/null || true
 echo ""
 echo "Services and Access Points:"
 echo ""
@@ -221,9 +198,17 @@ echo "   kind delete cluster --name $CLUSTER_NAME"
 echo ""
 echo "Architecture Summary:"
 echo "- KIND cluster with 1 control plane + 1 worker (no kube-proxy)"
-echo "- Cilium v1.17.0 for networking, BGP, and native LoadBalancer"
-echo "- Istio v1.28.0 for service mesh with mTLS"
-echo "- Prometheus + Grafana + Loki + Tempo for full observability"
-echo "- ArgoCD v3.2.0 for GitOps-driven deployments"
-echo "- All applications deployed via Helm charts"
+echo "- Cilium v1.17.0 deployed via Helm"
+echo "- ArgoCD v3.2.0 deployed via Helm"
+echo "- ArgoCD manages all other apps via GitOps:"
+echo "  ├─ Istio v1.28.0 (service mesh)"
+echo "  ├─ Prometheus v2.48.0 (metrics)"
+echo "  ├─ Loki v3.0.0 (logs)"
+echo "  ├─ Tempo v2.3.0 (traces)"
+echo "  └─ my-app (sample application)"
+echo ""
+echo "Deployment Model: GitOps-First"
+echo "- Only 2 direct Helm installs: Cilium + ArgoCD"
+echo "- All other apps managed by ArgoCD from git"
+echo "- Changes via git commits, auto-synced by ArgoCD"
 echo ""

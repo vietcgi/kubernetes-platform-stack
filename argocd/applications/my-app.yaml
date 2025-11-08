@@ -1,0 +1,28 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: my-app
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/vietcgi/kubernetes-platform-stack
+    targetRevision: main
+    path: helm/my-app
+    helm:
+      parameters:
+      - name: image.pullPolicy
+        value: "Never"
+      - name: image.tag
+        value: "latest"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: app
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true
+    - RespectIgnoreDifferences=true
+  revisionHistoryLimit: 10
