@@ -25,6 +25,15 @@ spec:
         group: observability
         syncWave: 1
 
+      - name: coredns
+        namespace: kube-system
+        repoURL: https://coredns.io/helm
+        chart: coredns
+        version: "*"
+        syncPolicy: aggressive
+        group: infrastructure
+        syncWave: 0
+
       - name: loki
         namespace: monitoring
         repoURL: https://grafana.github.io/helm-charts
@@ -189,6 +198,25 @@ spec:
             # Enable CRD installation for cert-manager
             crds:
               enabled: true
+            {{ else if eq .name "coredns" }}
+            # CoreDNS for local DNS resolution
+            service:
+              type: ClusterIP
+            replicaCount: 1
+            servers:
+            - zones:
+              - zone: demo.local
+                port: 53
+              port: 53
+              plugins:
+              - name: errors
+              - name: health
+              - name: ready
+              - name: prometheus
+                parameters: 0.0.0.0:9153
+              - name: log
+                parameters: . stdout
+              - name: whoami
             {{ else if eq .name "prometheus" }}
             # Kube-prometheus-stack needs extra settings for KIND
             prometheus:
@@ -231,6 +259,9 @@ spec:
                   - loki.demo.local
             {{ else if eq .name "longhorn" }}
             # Longhorn persistent storage
+            # Skip pre-upgrade hooks to avoid service account dependency issues
+            preUpgradeChecker:
+              jobSpec: null
             persistence:
               defaultClassReplicaCount: 3
             defaultSettings:
@@ -370,6 +401,7 @@ data:
   # Platform applications inventory
   platform-apps: |
     infrastructure:
+      - coredns
       - external-dns
       - kong
       - longhorn
