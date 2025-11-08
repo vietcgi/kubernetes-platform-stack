@@ -1,0 +1,188 @@
+# Istio Helm Chart Values
+# Latest v1.28.0 with mTLS and ambient mode ready
+
+# Istio base namespace setup
+base:
+  global:
+    istioNamespace: istio-system
+
+# Istiod (Istio control plane)
+istiod:
+  global:
+    imagePullPolicy: IfNotPresent
+
+  # Pilot (traffic management)
+  pilot:
+    enabled: true
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+  # Telemetry collection (metrics)
+  telemetry:
+    enabled: true
+    metrics:
+      prometheus:
+        enabled: true
+    logging:
+      provider: stackdriver
+
+  # mTLS enforcement
+  security:
+    workloadSecretRotation:
+      enabled: true
+      rotationDuration: 24h0m0s
+    referenceTrustDomain: "cluster.local"
+
+  # PeerAuthentication for mutual TLS
+  peerAuthentication:
+    mtls:
+      mode: STRICT  # Enforce mTLS for all services
+
+  # RequestAuthentication for JWT validation
+  requestAuthentication:
+    enabled: true
+
+  # AuthorizationPolicy defaults
+  authorizationPolicy:
+    enabled: true
+    defaultAction: ALLOW  # Set to DENY for zero-trust, then add specific allow policies
+
+  # Ambient mode (if K8s 1.33+)
+  ambient:
+    enabled: false  # Set to true for ambient mesh mode
+    waypoint:
+      enabled: false
+
+  # Gateway configuration
+  gateway:
+    enabled: true
+    namespace: istio-system
+    type: LoadBalancer
+    ports:
+      http:
+        port: 80
+        targetPort: 8080
+      https:
+        port: 443
+        targetPort: 8443
+    labels:
+      app: istio-ingressgateway
+
+  # VirtualService and DestinationRule defaults
+  virtualService:
+    enabled: false  # Create via application Helm charts
+
+  # ServiceEntry for external services
+  serviceEntry:
+    enabled: false
+
+  # Sidecar injection
+  sidecarInjection:
+    enabled: true
+    # Automatic sidecar injection
+    mutatingWebhooks:
+      enabled: true
+    configMap:
+      name: istio-sidecar-injector
+
+  # OpenTelemetry (tracing)
+  tracing:
+    enabled: true
+    provider: jaeger
+    jaeger:
+      address: jaeger-collector.observability:14250
+
+  # Prometheus integration
+  prometheus:
+    enabled: true
+    port: 9090
+    interval: 30s
+
+  # Pod disruption budget
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+
+  # Resource limits for Envoy sidecars
+  proxy:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 200m
+        memory: 256Mi
+
+  # Init container for traffic redirection
+  cni:
+    enabled: false  # Can enable if using Istio CNI plugin
+
+  # Revision for canary upgrades
+  revision: ""  # Leave empty for default, set to "canary" for canary installation
+
+# Application-level Istio configuration (referenced by app Helm charts)
+applicationConfig:
+  # VirtualService template
+  virtualService:
+    enabled: false
+    gateways:
+      - istio-ingressgateway
+    hosts:
+      - "*"
+    http:
+      - match:
+          - uri:
+              prefix: /
+        route:
+          - destination:
+              host: my-app
+              port:
+                number: 8080
+              subset: v1
+            weight: 100
+
+  # DestinationRule for load balancing
+  destinationRule:
+    enabled: false
+    host: my-app
+    trafficPolicy:
+      connectionPool:
+        tcp:
+          maxConnections: 100
+        http:
+          http1MaxPendingRequests: 100
+          http2MaxRequests: 1000
+          maxRequestsPerConnection: 2
+    outlierDetection:
+      consecutiveErrors: 5
+      interval: 30s
+      baseEjectionTime: 30s
+    subsets:
+      - name: v1
+        labels:
+          version: v1
+
+  # PeerAuthentication for namespace
+  peerAuthentication:
+    mtls:
+      mode: STRICT
+
+  # AuthorizationPolicy for namespace
+  authorizationPolicy:
+    enabled: true
+    rules:
+      - from:
+          - source:
+              principals:
+                - "cluster.local/ns/default/sa/default"
+        to:
+          - operation:
+              methods:
+                - GET
+                - POST

@@ -1,0 +1,227 @@
+# Prometheus Stack Helm Chart Values
+# Observability: Prometheus (metrics), Grafana (dashboards), Loki (logs), Tempo (traces)
+
+# Kube Prometheus Stack (includes Prometheus, Alertmanager, Node Exporter, Kube-state-metrics)
+kube-prometheus-stack:
+  # Prometheus
+  prometheus:
+    enabled: true
+    prometheusSpec:
+      replicas: 1
+      image:
+        repository: quay.io/prometheus/prometheus
+        tag: v2.48.0
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+        limits:
+          cpu: 500m
+          memory: 1Gi
+      retention: 15d
+      storageSpec:
+        volumeClaimTemplate:
+          spec:
+            accessModes: ["ReadWriteOnce"]
+            resources:
+              requests:
+                storage: 10Gi
+      serviceMonitorSelectorNilUsesHelmValues: false
+      podMonitorSelectorNilUsesHelmValues: false
+      ruleSelector: {}
+      ruleSelectorNilUsesHelmValues: false
+
+  # Grafana
+  grafana:
+    enabled: true
+    replicas: 1
+    image:
+      repository: grafana/grafana
+      tag: "11.0.0"
+    adminPassword: "prom-operator"
+    service:
+      type: LoadBalancer
+      port: 80
+      targetPort: 3000
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 200m
+        memory: 512Mi
+    # Datasources for Prometheus, Loki, Tempo
+    datasources:
+      datasources.yaml:
+        apiVersion: 1
+        datasources:
+        - name: Prometheus
+          type: prometheus
+          url: http://kube-prometheus-stack-prometheus:9090
+          isDefault: true
+        - name: Loki
+          type: loki
+          url: http://loki:3100
+        - name: Tempo
+          type: tempo
+          url: http://tempo:3100
+
+  # Prometheus Operator
+  prometheusOperator:
+    enabled: true
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 200m
+        memory: 256Mi
+
+  # Node Exporter
+  nodeExporter:
+    enabled: true
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 100m
+        memory: 128Mi
+
+  # Kube State Metrics
+  kubeStateMetrics:
+    enabled: true
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 100m
+        memory: 256Mi
+
+  # Alertmanager
+  alertmanager:
+    enabled: true
+    alertmanagerSpec:
+      replicas: 1
+      storage:
+        volumeClaimTemplate:
+          spec:
+            accessModes: ["ReadWriteOnce"]
+            resources:
+              requests:
+                storage: 1Gi
+
+# Loki Stack (Log Aggregation)
+loki-stack:
+  enabled: true
+  loki:
+    enabled: true
+    image:
+      repository: grafana/loki
+      tag: "3.0.0"
+    persistence:
+      enabled: true
+      size: 10Gi
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 200m
+        memory: 512Mi
+    config:
+      auth_enabled: false
+      ingester:
+        chunk_idle_period: 3m
+        max_chunk_age: 1h
+      limits_config:
+        enforce_metric_name: false
+        max_entries_limit_per_second: 20000
+
+  # Promtail (Log shipper)
+  promtail:
+    enabled: true
+    image:
+      repository: grafana/promtail
+      tag: "3.0.0"
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 100m
+        memory: 256Mi
+
+# Tempo (Distributed Tracing)
+tempo:
+  enabled: true
+  image:
+    repository: grafana/tempo
+    tag: "2.3.0"
+  replicas: 1
+  persistence:
+    enabled: true
+    size: 5Gi
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 512Mi
+  config:
+    metrics_generator_enabled: true
+    metrics_generator:
+      collection_interval: 15s
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:4317
+          http:
+            endpoint: 0.0.0.0:4318
+      jaeger:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:14250
+          thrift_http:
+            endpoint: 0.0.0.0:14268
+
+# Service Monitor for custom app metrics
+serviceMonitor:
+  enabled: true
+  # Example: Monitor my-app service
+  # labels:
+  #   release: prometheus
+  # endpoints:
+  # - interval: 30s
+  #   path: /metrics
+  #   port: metrics
+
+# PrometheusRule for alerting
+prometheusRule:
+  enabled: true
+  # Define custom alert rules here
+  groups: []
+    # Example:
+    # - name: kubernetes.rules
+    #   interval: 30s
+    #   rules:
+    #   - alert: PodCrashLooping
+    #     expr: 'rate(kubernetes_pod_container_status_restarts_total[15m]) > 0'
+    #     for: 5m
+    #     annotations:
+    #       summary: "Pod crash looping"
+
+# Namespace for observability components
+namespace: monitoring
+
+# RBAC
+rbac:
+  create: true
+
+# Service accounts
+serviceAccount:
+  create: true
+  name: observability

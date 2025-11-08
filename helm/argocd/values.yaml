@@ -1,0 +1,218 @@
+# ArgoCD Helm Chart Values
+# Latest v3.2.0 with enhanced GitOps capabilities
+
+argo-cd:
+  global:
+    domain: argocd.platform.local
+    imagePullPolicy: IfNotPresent
+
+  # ArgoCD server (API and UI)
+  server:
+    enabled: true
+    replicaCount: 1
+    service:
+      type: LoadBalancer
+      port: 80
+      targetPort: 8080
+    extraArgs:
+      - --insecure  # Use insecure mode for testing (set to false in prod)
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+  # ArgoCD repository server
+  repoServer:
+    enabled: true
+    replicaCount: 1
+    autoscaling:
+      enabled: true
+      minReplicas: 1
+      maxReplicas: 3
+      targetCPUUtilizationPercentage: 80
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+  # ArgoCD application controller
+  controller:
+    enabled: true
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 1Gi
+
+  # ArgoCD notification controller
+  notifications:
+    enabled: true
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 100m
+        memory: 256Mi
+
+  # Dex for OAuth/OIDC
+  dex:
+    enabled: true
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 100m
+        memory: 128Mi
+
+  # Redis for caching
+  redis:
+    enabled: true
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 100m
+        memory: 256Mi
+
+  # ArgoCD configs
+  configs:
+    # Initial admin password (change in production)
+    secret:
+      createSecret: true
+      argocdServerAdminPassword: "$2a$10$rRyVfvhzz0yWHtPIaYN1/.TY67PPLlrdLarg/DxwXE8/pWqdtoKlm"  # "admin123"
+
+    # Repository credentials
+    repositories: {}
+      # Example:
+      # - name: kubernetes-platform-stack
+      #   url: https://github.com/vietcgi/kubernetes-platform-stack
+      #   username: username
+      #   password: token
+
+    # SSH known hosts for Git
+    knownHosts:
+      data:
+        github.com: "github.com ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAq2A7hRGqdnnARrRQtsKFvu7jFzlMwlFjwNyfSlqtbuwLsiZawejfAMJLIWpcxP7kz..."
+
+    # RBAC configuration
+    rbac:
+      create: true
+      rules:
+        - groups:
+            - admin
+          resources:
+            - "*"
+          verbs:
+            - "*"
+        - groups:
+            - default
+          resources:
+            - logs
+          verbs:
+            - get
+
+  # Application controller settings
+  applicationSet:
+    enabled: true
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 200m
+        memory: 512Mi
+
+  # Image updater for automatic image updates
+  imageUpdater:
+    enabled: true
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 200m
+        memory: 256Mi
+
+  # Metrics and monitoring
+  metrics:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+      namespace: monitoring
+
+  # Pod Disruption Budget for high availability
+  podDisruptionBudget:
+    enabled: false  # Disable for single-replica deployments
+
+  # Ingress (optional, use LoadBalancer service instead)
+  ingress:
+    enabled: false
+
+# Git repository for app manifests (required for GitOps)
+gitRepository:
+  enabled: true
+  # URL to your Git repository
+  url: "https://github.com/vietcgi/kubernetes-platform-stack"
+  # Branch to track
+  branch: main
+  # Path to application manifests in the repo
+  path: argocd/
+  # How often to sync (in seconds)
+  syncInterval: 30s
+
+# Application of Applications (ArgoCD meta-orchestrator)
+appOfApps:
+  enabled: true
+  namespace: argocd
+  # Apps to deploy
+  apps:
+    - name: cilium
+      namespace: kube-system
+      path: helm/cilium
+      repoUrl: "https://github.com/vietcgi/kubernetes-platform-stack"
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+
+    - name: istio
+      namespace: istio-system
+      path: helm/istio
+      repoUrl: "https://github.com/vietcgi/kubernetes-platform-stack"
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+
+    - name: prometheus
+      namespace: monitoring
+      path: helm/prometheus
+      repoUrl: "https://github.com/vietcgi/kubernetes-platform-stack"
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+
+    - name: my-app
+      namespace: app
+      path: helm/my-app
+      repoUrl: "https://github.com/vietcgi/kubernetes-platform-stack"
+      syncPolicy:
+        automated:
+          prune: false  # Don't delete app on sync failure
+          selfHeal: true

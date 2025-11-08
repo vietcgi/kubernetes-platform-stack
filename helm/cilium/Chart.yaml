@@ -1,0 +1,18 @@
+apiVersion: v2
+name: cilium
+description: A Helm chart for Cilium CNI with BGP and kube-proxy replacement
+type: application
+version: 1.0.0
+appVersion: "1.17.0"
+keywords:
+  - cilium
+  - cni
+  - networking
+  - bgp
+  - ebpf
+maintainers:
+  - name: Kubernetes Platform Stack
+dependencies:
+  - name: cilium
+    version: "1.17.0"
+    repository: "https://helm.cilium.io"

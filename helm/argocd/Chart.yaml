@@ -1,0 +1,16 @@
+apiVersion: v2
+name: argocd
+description: A Helm chart for ArgoCD GitOps
+type: application
+version: 1.0.0
+appVersion: "3.2.0"
+keywords:
+  - argocd
+  - gitops
+  - continuous-deployment
+maintainers:
+  - name: Kubernetes Platform Stack
+dependencies:
+  - name: argo-cd
+    version: "7.2.0"
+    repository: "https://argoproj.github.io/argo-helm"

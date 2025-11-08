@@ -2,7 +2,7 @@ replicaCount: 1
 
 image:
   repository: kubernetes-platform-stack
-  pullPolicy: Never
+  pullPolicy: IfNotPresent
   tag: "latest"
 
 imagePullSecrets: []
@@ -18,6 +18,8 @@ podAnnotations:
   prometheus.io/scrape: "true"
   prometheus.io/port: "8080"
   prometheus.io/path: "/metrics"
+  # Cilium BGP annotation for LoadBalancer IP advertisement
+  io.cilium/bgp-advertise: "true"
 
 podSecurityContext:
   runAsNonRoot: true
@@ -35,6 +37,11 @@ service:
   type: LoadBalancer
   port: 80
   targetPort: 8080
+  annotations:
+    # Cilium BGP LoadBalancer annotation
+    io.cilium/bgp-advertise: "true"
+  # Optional: specify LoadBalancer IP from your BGP pool
+  # loadBalancerIP: "10.0.0.100"
 
 ingress:
   enabled: false
@@ -57,16 +64,32 @@ resources:
 
 autoscaling:
   enabled: true
-  minReplicas: 2
-  maxReplicas: 10
+  minReplicas: 1
+  maxReplicas: 5
   targetCPUUtilizationPercentage: 80
   targetMemoryUtilizationPercentage: 80
+
+# Pod Disruption Budget for high availability
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 0
 
 nodeSelector: {}
 
 tolerations: []
 
-affinity: {}
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app
+                operator: In
+                values:
+                  - my-app
+          topologyKey: kubernetes.io/hostname
 
 livenessProbe:
   httpGet:
@@ -75,6 +98,7 @@ livenessProbe:
   initialDelaySeconds: 10
   periodSeconds: 10
   timeoutSeconds: 3
+  failureThreshold: 3
 
 readinessProbe:
   httpGet:
@@ -83,6 +107,7 @@ readinessProbe:
   initialDelaySeconds: 5
   periodSeconds: 5
   timeoutSeconds: 3
+  failureThreshold: 3
 
 config:
   logLevel: "INFO"
@@ -93,3 +118,99 @@ env:
     value: "INFO"
   - name: PORT
     value: "8080"
+
+# Istio VirtualService configuration
+istio:
+  enabled: true
+  virtualService:
+    enabled: true
+    hosts:
+      - "*"
+    gateways:
+      - istio-ingressgateway
+    http:
+      - match:
+          - uri:
+              prefix: /
+        route:
+          - destination:
+              host: my-app
+              port:
+                number: 8080
+              subset: v1
+            weight: 100
+        timeout: 30s
+        retries:
+          attempts: 3
+          perTryTimeout: 10s
+
+  # Destination Rule for load balancing policy
+  destinationRule:
+    enabled: true
+    trafficPolicy:
+      connectionPool:
+        tcp:
+          maxConnections: 100
+        http:
+          http1MaxPendingRequests: 100
+          http2MaxRequests: 1000
+          maxRequestsPerConnection: 2
+      outlierDetection:
+        consecutiveErrors: 5
+        interval: 30s
+        baseEjectionTime: 30s
+        maxEjectionPercent: 50
+        minRequestVolume: 5
+    subsets:
+      - name: v1
+        labels:
+          version: v1
+
+  # Peer Authentication (mTLS)
+  peerAuthentication:
+    enabled: true
+    mtls:
+      mode: STRICT
+
+  # Authorization Policy
+  authorizationPolicy:
+    enabled: true
+    rules:
+      - from:
+          - source:
+              principals:
+                - "cluster.local/ns/default/sa/default"
+        to:
+          - operation:
+              methods:
+                - GET
+                - POST
+              paths:
+                - /api/*
+                - /health
+                - /ready
+
+# Prometheus ServiceMonitor for metrics scraping
+prometheus:
+  enabled: true
+  interval: 30s
+  path: /metrics
+
+# Network Policy for security
+networkPolicy:
+  enabled: true
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: istio-system
+      ports:
+        - protocol: TCP
+          port: 8080
+    - from:
+        - podSelector:
+            matchLabels:
+              app: my-app
+      ports:
+        - protocol: TCP
+          port: 8080

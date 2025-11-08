@@ -1,0 +1,101 @@
+{{- if .Values.networkPolicies.enabled }}
+---
+# Default Deny All Ingress
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: {{ .Release.Namespace }}
+spec:
+  endpointSelector: {}
+  policyTypes:
+  - Ingress
+  {{- if .Values.networkPolicies.defaultDeny }}
+  ingress:
+  # Allow nothing - everything denied by default
+  {{- end }}
+
+---
+# Allow DNS resolution
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: allow-dns
+  namespace: kube-system
+spec:
+  endpointSelector:
+    matchLabels:
+      k8s-app: cilium
+  egressDeny:
+  - toEndpoints:
+    - matchLabels:
+        k8s-app: kube-dns
+    toPorts:
+    - ports:
+      - port: "53"
+        protocol: UDP
+      - port: "53"
+        protocol: TCP
+
+---
+# Allow app-to-app communication
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: allow-app-traffic
+  namespace: {{ .Release.Namespace }}
+spec:
+  endpointSelector:
+    matchLabels:
+      {{- toYaml .Values.networkPolicies.selector | nindent 6 }}
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - fromEndpoints:
+    - matchLabels:
+        {{- toYaml .Values.networkPolicies.selector | nindent 8 }}
+    toPorts:
+    - ports:
+      - port: "8080"
+        protocol: TCP
+      - port: "9090"
+        protocol: TCP
+  egress:
+  - toEndpoints:
+    - matchLabels:
+        {{- toYaml .Values.networkPolicies.selector | nindent 8 }}
+  # Allow DNS
+  - toEndpoints:
+    - matchLabels:
+        k8s-app: kube-dns
+    toPorts:
+    - ports:
+      - port: "53"
+        protocol: UDP
+
+---
+# Allow external ingress to LoadBalancer service
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: allow-external-ingress
+  namespace: {{ .Release.Namespace }}
+spec:
+  endpointSelector:
+    matchLabels:
+      {{- toYaml .Values.networkPolicies.selector | nindent 6 }}
+  policyTypes:
+  - Ingress
+  ingress:
+  - fromEntities:
+    - "host"
+    toPorts:
+    - ports:
+      - port: "8080"
+        protocol: TCP
+      - port: "80"
+        protocol: TCP
+      - port: "443"
+        protocol: TCP
+{{- end }}

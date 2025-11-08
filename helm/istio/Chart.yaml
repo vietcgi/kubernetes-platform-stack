@@ -1,0 +1,20 @@
+apiVersion: v2
+name: istio
+description: A Helm chart for Istio Service Mesh with mTLS
+type: application
+version: 1.0.0
+appVersion: "1.28.0"
+keywords:
+  - istio
+  - service-mesh
+  - mtls
+  - traffic-management
+maintainers:
+  - name: Kubernetes Platform Stack
+dependencies:
+  - name: base
+    version: "1.28.0"
+    repository: "https://istio-release.storage.googleapis.com/charts"
+  - name: istiod
+    version: "1.28.0"
+    repository: "https://istio-release.storage.googleapis.com/charts"

@@ -1,0 +1,172 @@
+# Cilium Helm Chart Values
+# Configured for BGP, kube-proxy replacement, and native LoadBalancer
+
+cilium:
+  # Cilium version
+  image:
+    repository: quay.io/cilium/cilium
+    tag: v1.17.0
+    pullPolicy: IfNotPresent
+
+  # IPAM configuration
+  ipam:
+    mode: kubernetes
+
+  # Enable BGP Control Plane for LoadBalancer IP advertisement
+  bgp:
+    enabled: true
+    announce:
+      loadbalancerIP: true
+      podCIDR: true
+
+  # BGP Configuration (peer settings)
+  bgpControlPlane:
+    enabled: true
+    secretsNamespace: kube-system
+
+  # Native LoadBalancer service support with BGP announcement
+  loadBalancer:
+    l2:
+      enabled: false
+    algorithm: maglev
+    mode: snat
+    # BGP-based LoadBalancer (replacing L2)
+    bgp:
+      enabled: true
+      announceLoadBalancerIP: true
+
+  # Kube-proxy replacement (critical for performance)
+  kubeProxyReplacement: true
+  kubeProxyReplacementHealthzBindAddr: 0.0.0.0:10256
+
+  # eBPF-based kube-proxy replacement features
+  bpf:
+    # Native socket load balancing
+    sockLB:
+      enabled: true
+      ingressMode: service
+    # Host datapath acceleration
+    hostLB:
+      enabled: true
+    # Connection tracking
+    ctAny:
+      enabled: true
+    # Program Pin Path
+    mapShare: true
+
+  # Cluster networking
+  cluster:
+    name: platform
+    id: 1
+
+  # Security - mTLS within cluster
+  hubble:
+    enabled: true
+    relay:
+      enabled: true
+    ui:
+      enabled: true
+      backend:
+        service:
+          type: ClusterIP
+
+  # Observability - Prometheus metrics
+  prometheus:
+    enabled: true
+    port: 9090
+    serviceMonitor:
+      enabled: true
+      namespace: monitoring
+      interval: 30s
+
+  # Network Policy engine
+  networkPolicy:
+    enabled: true
+
+  # Pod Execution Spaces
+  podExecutionSpaces:
+    enabled: false
+
+  # DNS Policy (optional, for DNS proxying)
+  dnsPolicy: ClusterFirstWithHostNet
+
+  # Resources (adjust based on cluster size)
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+  # Node affinity for BGP nodes (if using labels)
+  nodeSelector:
+    kubernetes.io/os: linux
+
+  # Tolerations for node taints
+  tolerations:
+    - operator: Exists
+      effect: NoSchedule
+    - operator: Exists
+      effect: NoExecute
+
+  # Host networking
+  hostNetwork: true
+
+  # Privileged mode required for eBPF
+  privileged: true
+
+  # Update strategy
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 2
+
+  # Environment variables
+  env:
+    CILIUM_ENABLE_ENVOY_CONFIG_API: "false"
+    CILIUM_ENABLE_HUBBLE_OPEN_METRICS: "true"
+    CILIUM_HUBBLE_METRICS_PORT: "9091"
+
+# BGP Configuration Templates - will be created as separate manifests
+bgp:
+  # BGP Cluster Config
+  clusterConfig:
+    enabled: true
+    localASN: 64512
+    routerID: "10.0.0.1"  # Adjust based on your cluster
+    exportPodCIDR: true
+    nodeSelector:
+      bgp: "enabled"
+
+  # BGP Peer Configuration (for peering with external routers)
+  neighbors:
+    enabled: false  # Set to true if you have external BGP routers
+    # Example peer config (uncomment to use)
+    # - peerAddress: "10.0.0.254"
+    #   asn: 64513
+    #   gracefulRestart:
+    #     enabled: true
+    #     restartTimeSeconds: 120
+
+  # BGP Advertisement Policy (what to announce)
+  advertisements:
+    enabled: true
+    loadBalancerIPs: true
+    podCIDRs: true
+    clusterIP: false  # Set true if v1.17.0+ and want to advertise ClusterIPs
+
+# Additional network policies template variables
+networkPolicies:
+  enabled: true
+  # Label selector for workloads to apply policies to
+  selector:
+    app: my-app
+
+  # Default policy: deny all ingress
+  defaultDeny: true
+
+# Monitoring configuration
+monitoring:
+  enabled: true
+  namespace: monitoring

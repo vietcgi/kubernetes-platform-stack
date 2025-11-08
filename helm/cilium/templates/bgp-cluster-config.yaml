@@ -1,0 +1,36 @@
+{{- if .Values.bgp.clusterConfig.enabled }}
+apiVersion: cilium.io/v2alpha1
+kind: CiliumBGPClusterConfig
+metadata:
+  name: cilium-bgp
+  namespace: kube-system
+spec:
+  nodeSelector:
+    matchLabels:
+      {{- toYaml .Values.bgp.clusterConfig.nodeSelector | nindent 6 }}
+  bgpInstances:
+  - name: "bgp-65000"
+    localASN: {{ .Values.bgp.clusterConfig.localASN }}
+    exportPodCIDR: {{ .Values.bgp.clusterConfig.exportPodCIDR }}
+    routerID: "{{ .Values.bgp.clusterConfig.routerID }}"
+    neighbors:
+      {{- if .Values.bgp.neighbors.enabled }}
+      {{- range .Values.bgp.neighbors }}
+      - peerAddress: "{{ .peerAddress }}"
+        peerASN: {{ .asn }}
+        gracefulRestart:
+          enabled: {{ .gracefulRestart.enabled }}
+          restartTimeSeconds: {{ .gracefulRestart.restartTimeSeconds }}
+      {{- end }}
+      {{- end }}
+    {{- if .Values.bgp.advertisements.enabled }}
+    advertisements:
+      - advertisementType: "service"
+        selector:
+          matchExpressions:
+          - key: io.cilium/bgp-advertise
+            operator: In
+            values:
+            - "true"
+    {{- end }}
+{{- end }}

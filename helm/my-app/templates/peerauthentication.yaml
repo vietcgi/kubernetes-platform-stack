@@ -1,0 +1,15 @@
+{{- if .Values.istio.peerAuthentication.enabled }}
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: {{ include "my-app.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "my-app.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "my-app.name" . }}
+  mtls:
+    mode: {{ .Values.istio.peerAuthentication.mtls.mode }}
+{{- end }}
