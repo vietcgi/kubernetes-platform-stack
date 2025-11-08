@@ -1,0 +1,32 @@
+---
+# Enforce mTLS for the app namespace
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: default
+  namespace: app
+spec:
+  mtls:
+    mode: STRICT
+
+---
+# Authorization policy - allow app pods to communicate
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-app
+  namespace: app
+spec:
+  selector:
+    matchLabels:
+      app: my-app
+  action: ALLOW
+  rules:
+  - from:
+    - source:
+        principals:
+        - "cluster.local/ns/app/sa/my-app"
+    to:
+    - operation:
+        methods: ["GET", "POST", "PUT", "DELETE"]
+        paths: ["/api*", "/health*", "/ready*", "/metrics*"]

@@ -1,0 +1,66 @@
+---
+# Default Deny All Ingress
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: app
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+
+---
+# Allow DNS
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: allow-dns
+  namespace: app
+spec:
+  description: "Allow DNS queries"
+  endpointSelector: {}
+  egressRules:
+  - toEndpoints:
+    - matchLabels:
+        k8s:io.kubernetes.pod.namespace: kube-system
+        k8s:k8s-app: kube-dns
+    toPorts:
+    - ports:
+      - port: "53"
+        protocol: UDP
+
+---
+# Allow app internal traffic
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: allow-app-internal
+  namespace: app
+spec:
+  description: "Allow traffic within app"
+  endpointSelector:
+    matchLabels:
+      app: my-app
+  ingress:
+  - fromEndpoints:
+    - matchLabels:
+        app: my-app
+
+---
+# Allow ingress to app
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: allow-app-ingress
+  namespace: app
+spec:
+  description: "Allow external traffic to app"
+  endpointSelector:
+    matchLabels:
+      app: my-app
+  ingress:
+  - toPorts:
+    - ports:
+      - port: "8080"
+        protocol: TCP

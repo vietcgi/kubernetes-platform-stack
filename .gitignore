@@ -1,0 +1,29 @@
+# Local
+.DS_Store
+*.local
+kubeconfig
+/tmp
+.vscode
+.idea
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Helm
+Chart.lock
+charts/
+
+# Kubernetes
+*.yaml.bak
+secrets/
+
+# Artifacts
+*.tar
+*.tar.gz
+build/
+dist/
