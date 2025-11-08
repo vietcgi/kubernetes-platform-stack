@@ -19,8 +19,6 @@ spec:
           repository: kubernetes-platform-stack
           tag: latest
           pullPolicy: Never
-        service:
-          type: LoadBalancer
   destination:
     server: https://kubernetes.default.svc
     namespace: app
