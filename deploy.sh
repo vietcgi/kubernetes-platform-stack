@@ -187,6 +187,14 @@ sleep 30
 
 # Step 6: Apply Cilium LoadBalancer configuration (IP pool and L2 announcements)
 log_info "Applying Cilium LoadBalancer configuration..."
+
+# Delete existing pool to ensure fresh allocation with correct IP range (172.18.1.1-254, not .0)
+if kubectl get ciliumloadbalancerippools default &>/dev/null 2>&1; then
+    log_info "Removing old LoadBalancer pool to ensure correct IP range initialization..."
+    kubectl delete ciliumloadbalancerippools default --ignore-not-found=true
+    sleep 2
+fi
+
 kubectl apply -f "$SCRIPT_DIR/manifests/cilium/lb-pool.yaml" 2>&1 | tail -3
 sleep 2
 kubectl apply -f "$SCRIPT_DIR/manifests/cilium/l2-announcement-policy.yaml" 2>&1 | tail -3
@@ -197,7 +205,7 @@ lb_pool=$(kubectl get ciliumloadbalancerippools 2>/dev/null | grep "default" | w
 l2_policy=$(kubectl get ciliuml2announcementpolicies -n kube-system 2>/dev/null | grep "default" | wc -l)
 if [ "$lb_pool" -gt 0 ] && [ "$l2_policy" -gt 0 ]; then
     log_info "✓ Cilium LoadBalancer configuration applied successfully"
-    log_info "  - CiliumLoadBalancerIPPool: 172.18.1.0/24 (Docker bridge - reachable from host)"
+    log_info "  - CiliumLoadBalancerIPPool: 172.18.1.0/24 (172.18.1.1-254 usable range)"
     log_info "  - L2 Announcement: eth0 (externalIPs + loadBalancerIPs)"
 else
     log_warn "LoadBalancer configuration may not have been applied correctly"
