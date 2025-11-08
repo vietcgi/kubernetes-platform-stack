@@ -204,7 +204,33 @@ else
 fi
 sleep 5
 
-# Step 7: Install ArgoCD for GitOps orchestration
+# Step 7: Deploy CoreDNS system component
+log_info "Deploying CoreDNS system component..."
+if [ -f "$SCRIPT_DIR/manifests/coredns/deployment.yaml" ]; then
+    kubectl apply -f "$SCRIPT_DIR/manifests/coredns/deployment.yaml" 2>&1 | tail -5
+    sleep 10
+
+    # Verify CoreDNS is running
+    coredns_ready=0
+    for i in {1..30}; do
+        coredns_pods=$(kubectl get pods -n kube-system -l k8s-app=coredns --field-selector=status.phase=Running 2>/dev/null | tail -n +2 | wc -l | xargs)
+        if [ "$coredns_pods" -ge 2 ]; then
+            coredns_ready=1
+            log_info "✓ CoreDNS is running ($coredns_pods pods)"
+            break
+        fi
+        sleep 2
+    done
+
+    if [ "$coredns_ready" -eq 0 ]; then
+        log_warn "CoreDNS deployment taking longer than expected, continuing anyway..."
+    fi
+else
+    log_warn "CoreDNS manifest not found: $SCRIPT_DIR/manifests/coredns/deployment.yaml"
+fi
+sleep 5
+
+# Step 8: Install ArgoCD for GitOps orchestration
 log_info "Installing ArgoCD (v3.2.0) for GitOps..."
 log_info "Using lightweight installation approach..."
 
@@ -231,14 +257,14 @@ for i in {1..120}; do
 done
 sleep 10
 
-# Step 8: Apply Kyverno CRD compatibility layer (fixes v3.5.2 sanity check failures)
+# Step 9: Apply Kyverno CRD compatibility layer (fixes v3.5.2 sanity check failures)
 log_info "Applying Kyverno CRD compatibility layer..."
 if [ -f "$SCRIPT_DIR/manifests/kyverno/crds-compat.yaml" ]; then
     kubectl apply -f "$SCRIPT_DIR/manifests/kyverno/crds-compat.yaml" 2>&1 | tail -3
     sleep 2
 fi
 
-# Step 9: Apply ApplicationSet to generate all platform applications
+# Step 10: Apply ApplicationSet to generate all platform applications
 log_info "Applying ApplicationSet to generate platform applications..."
 if [ ! -f "$SCRIPT_DIR/argocd/applicationsets/platform-apps.yaml" ]; then
     log_error "ApplicationSet file not found: $SCRIPT_DIR/argocd/applicationsets/platform-apps.yaml"
@@ -256,7 +282,7 @@ else
     log_warn "Kong ingress Application not found: $SCRIPT_DIR/argocd/applications/kong-ingress.yaml"
 fi
 
-# Step 10: Wait for all applications to be created by ApplicationSet
+# Step 11: Wait for all applications to be created by ApplicationSet
 log_info "Waiting for ApplicationSet to generate applications..."
 sleep 5
 max_attempts=30
@@ -272,7 +298,7 @@ while [ $attempts -lt $max_attempts ]; do
     ((attempts++))
 done
 
-# Step 11: Wait for all applications to sync
+# Step 12: Wait for all applications to sync
 log_info "Waiting for all applications to sync and become healthy..."
 sleep 10
 
@@ -307,7 +333,7 @@ for app in $all_apps; do
     done
 done
 
-# Step 12: Final verification and summary
+# Step 13: Final verification and summary
 log_info "Verifying all applications are deployed..."
 echo ""
 echo "======================================"
