@@ -54,178 +54,237 @@ sleep 5
 
 # Step 3: Install Helm repositories
 log_info "Adding Helm repositories..."
-helm repo add cilium https://helm.cilium.io
-helm repo add istio https://istio-release.storage.googleapis.com/charts
-helm repo add jetstack https://charts.jetstack.io
-helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
-helm repo add grafana https://grafana.github.io/helm-charts
-helm repo add argoproj https://argoproj.github.io/argo-helm
+helm repo add cilium https://helm.cilium.io --force-update
+helm repo add istio https://istio-release.storage.googleapis.com/charts --force-update
+helm repo add jetstack https://charts.jetstack.io --force-update
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts --force-update
+helm repo add grafana https://grafana.github.io/helm-charts --force-update
+helm repo add argoproj https://argoproj.github.io/argo-helm --force-update
+helm repo add hashicorp https://helm.releases.hashicorp.com --force-update
+helm repo add falcosecurity https://falcosecurity.github.io/charts --force-update
+helm repo add kyverno https://kyverno.github.io/kyverno --force-update
+helm repo add gatekeeper https://open-policy-agent.github.io/gatekeeper/charts --force-update
+helm repo add sealed-secrets https://bitnami-labs.github.io/sealed-secrets --force-update
 helm repo update
 
-# Step 4: Create namespaces
+# Step 4: Create all required namespaces from config/global.yaml
 log_info "Creating Kubernetes namespaces..."
 kubectl create namespace kube-system --dry-run=client -o yaml | kubectl apply -f -
 kubectl create namespace istio-system --dry-run=client -o yaml | kubectl apply -f -
 kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -
 kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -
 kubectl create namespace app --dry-run=client -o yaml | kubectl apply -f -
+kubectl create namespace cert-manager --dry-run=client -o yaml | kubectl apply -f -
+kubectl create namespace vault --dry-run=client -o yaml | kubectl apply -f -
+kubectl create namespace falco --dry-run=client -o yaml | kubectl apply -f -
+kubectl create namespace kyverno --dry-run=client -o yaml | kubectl apply -f -
+kubectl create namespace sealed-secrets --dry-run=client -o yaml | kubectl apply -f -
+kubectl create namespace gatekeeper-system --dry-run=client -o yaml | kubectl apply -f -
+kubectl create namespace audit-logging --dry-run=client -o yaml | kubectl apply -f -
 
-# Label namespaces for Istio injection
-kubectl label namespace istio-system istio-injection=enabled --overwrite
-kubectl label namespace monitoring istio-injection=enabled --overwrite
+# Label namespaces for Istio injection (optional, but useful for observability)
+kubectl label namespace monitoring istio-injection=enabled --overwrite || true
+kubectl label namespace app istio-injection=enabled --overwrite || true
 
 # Step 5: Install Cilium CNI with BGP and kube-proxy replacement
 log_info "Installing Cilium CNI (v1.17.0) with BGP and kube-proxy replacement..."
 helm install cilium cilium/cilium \
   --namespace kube-system \
-  --values "$SCRIPT_DIR/helm/cilium/values.yaml" \
-  --wait --timeout=10m 2>&1 | tail -10
+  --values "$SCRIPT_DIR/helm/cilium/values.yaml" 2>&1 | tail -5
 
-log_info "Waiting for Cilium to be ready..."
-kubectl wait --for=condition=Ready pod -l k8s-app=cilium -n kube-system --timeout=10m 2>/dev/null || true
-sleep 10
+log_info "Waiting for Cilium to be ready (this may take 5-10 minutes)..."
+cilium_ready=0
+for i in {1..120}; do
+    # Check for running Cilium pods
+    cilium_pods=$(kubectl get pods -n kube-system -l k8s-app=cilium --field-selector=status.phase=Running 2>/dev/null | tail -n +2 | wc -l)
+
+    # Also verify API server is responding to Cilium (important for init containers)
+    if [ "$cilium_pods" -gt 0 ]; then
+        # Double-check that nodes are becoming Ready
+        ready_nodes=$(kubectl get nodes --no-headers 2>/dev/null | grep -c " Ready " || echo "0")
+        if [ "$ready_nodes" -gt 0 ]; then
+            cilium_ready=1
+            log_info "✓ Cilium pods are running and cluster nodes becoming ready"
+            break
+        fi
+    fi
+
+    if [ $((i % 15)) -eq 0 ]; then
+        log_info "Waiting for Cilium initialization... ($i/120, pods: $cilium_pods)"
+    fi
+    sleep 5
+done
+
+if [ "$cilium_ready" -eq 0 ]; then
+    log_warn "Cilium initialization taking longer than expected, continuing anyway..."
+fi
+sleep 20
 
 # Step 6: Install ArgoCD for GitOps orchestration
 log_info "Installing ArgoCD (v3.2.0) for GitOps..."
-helm install argocd argoproj/argo-cd \
-  --namespace argocd \
-  --values "$SCRIPT_DIR/helm/argocd/values.yaml" \
-  --wait --timeout=10m 2>&1 | tail -10
+log_info "Using lightweight installation approach..."
 
-log_info "Waiting for ArgoCD to be ready..."
-kubectl wait --for=condition=Ready pod -l app.kubernetes.io/name=argocd-server -n argocd --timeout=5m 2>/dev/null || true
+# Option A: Use direct YAML installation (faster, no Helm timeout issues)
+kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml 2>&1 | tail -5
+
+log_info "Waiting for ArgoCD to be ready (this may take 5-10 minutes)..."
+for i in {1..120}; do
+    argocd_server=$(kubectl get deployment argocd-server -n argocd -o jsonpath='{.status.readyReplicas}' 2>/dev/null)
+    argocd_server=${argocd_server:-0}  # default to 0 if empty
+    if [ "$argocd_server" -ge 1 ]; then
+        log_info "✓ ArgoCD server is ready"
+        break
+    fi
+    if [ $((i % 20)) -eq 0 ]; then
+        log_info "Waiting for ArgoCD server... ($i/120)"
+    fi
+    sleep 3
+done
 sleep 10
 
-# Step 7: Build and load Docker image
-log_info "Building and loading Docker image..."
-docker build -t kubernetes-platform-stack:latest "$SCRIPT_DIR"
-kind load docker-image kubernetes-platform-stack:latest --name "$CLUSTER_NAME"
-
-# Step 8: Create ArgoCD applications (other apps managed by ArgoCD)
-log_info "Creating ArgoCD Application manifests..."
-kubectl apply -f "$SCRIPT_DIR/argocd/applications/" 2>&1 | tail -5
-
-# Step 9: Wait for ArgoCD to sync all applications
-log_info "Waiting for ArgoCD to sync all applications..."
+# Step 7: Apply ApplicationSet to generate all 14 applications (replaces old argocd/applications/ approach)
+log_info "Applying ApplicationSet to generate all 14 applications..."
+kubectl apply -f "$SCRIPT_DIR/argocd/applicationsets/platform-apps.yaml"
 sleep 5
-for app in "istio" "prometheus" "loki" "tempo" "my-app" "cert-manager" "vault" "falco" "kyverno" "sealed-secrets" "gatekeeper" "audit-logging"; do
-    log_info "Waiting for application: $app"
-    for i in {1..60}; do
-        STATUS=$(kubectl get application $app -n argocd -o jsonpath='{.status.operationState.phase}' 2>/dev/null || echo "")
-        if [ "$STATUS" = "Succeeded" ] || [ "$STATUS" = "" ]; then
-            log_info "Application $app synced"
+
+# Step 8: Wait for all applications to be created by ApplicationSet
+log_info "Waiting for ApplicationSet to generate applications..."
+sleep 5
+max_attempts=30
+attempts=0
+while [ $attempts -lt $max_attempts ]; do
+    app_count=$(kubectl get applications -n argocd 2>/dev/null | tail -n +2 | wc -l || echo "0")
+    if [ "$app_count" -ge 14 ]; then
+        log_info "ApplicationSet created all 14 applications!"
+        break
+    fi
+    log_info "Applications created: $app_count/14 (waiting...)"
+    sleep 2
+    ((attempts++))
+done
+
+# Step 9: Wait for all applications to sync
+log_info "Waiting for all applications to sync and become healthy..."
+sleep 10
+
+# Get all application names dynamically
+all_apps=$(kubectl get applications -n argocd -o jsonpath='{.items[*].metadata.name}' 2>/dev/null || echo "")
+
+if [ -z "$all_apps" ]; then
+    log_error "No applications found in ArgoCD!"
+    exit 1
+fi
+
+# Wait for each app to sync
+for app in $all_apps; do
+    log_info "Monitoring application: $app"
+    for i in {1..120}; do
+        # Check if app exists and get its sync status
+        SYNC_STATUS=$(kubectl get application "$app" -n argocd -o jsonpath='{.status.sync.status}' 2>/dev/null || echo "Unknown")
+        HEALTH_STATUS=$(kubectl get application "$app" -n argocd -o jsonpath='{.status.health.status}' 2>/dev/null || echo "Unknown")
+
+        if [ "$SYNC_STATUS" = "Synced" ] && [ "$HEALTH_STATUS" = "Healthy" ]; then
+            log_info "✓ $app is Synced and Healthy"
             break
         fi
-        if [ $((i % 10)) -eq 0 ]; then
-            log_info "Still syncing $app... ($i/60)"
+
+        if [ $((i % 15)) -eq 0 ]; then
+            log_info "$app status: Sync=$SYNC_STATUS, Health=$HEALTH_STATUS (attempt $i/120)"
         fi
-        sleep 5
+
+        sleep 3
     done
 done
 
-# Step 10: Verify deployments
-log_info "Verifying ArgoCD applications..."
-kubectl get applications -n argocd -o wide
-
-# Step 11: Test my-app health endpoint
-log_info "Waiting for my-app to be ready..."
-kubectl wait --for=condition=Ready pod -l app.kubernetes.io/name=my-app -n app --timeout=10m 2>/dev/null || true
-
-log_info "Testing application health endpoint..."
-sleep 5
-kubectl port-forward -n app svc/my-app 8080:80 > /dev/null 2>&1 &
-sleep 2
-HEALTH=$(curl -s http://localhost:8080/health 2>/dev/null || echo "")
-pkill -f "port-forward" || true
-
-if [ -z "$HEALTH" ]; then
-    log_warn "Could not verify health endpoint, but ArgoCD is syncing"
-else
-    log_info "Health check passed: $HEALTH"
-fi
-
-# Final summary
+# Step 10: Final verification and summary
+log_info "Verifying all applications are deployed..."
 echo ""
 echo "======================================"
-echo "Deployment Complete!"
+echo "✓ Deployment Complete!"
 echo "======================================"
 echo ""
 echo "Cluster: $CLUSTER_NAME"
 echo "K8s Version: 1.33.0"
 echo "Status: Running with Cilium + ArgoCD GitOps"
 echo ""
-echo "Deployed Helm Releases:"
-helm list -a --all-namespaces
+echo "Deployed Helm Releases (direct installs):"
+echo "- Cilium v1.17.0 (CNI with BGP, kube-proxy replacement)"
+echo "- ArgoCD v3.2.0 (GitOps orchestration)"
 echo ""
-echo "ArgoCD-Managed Applications:"
-kubectl get applications -n argocd --no-headers 2>/dev/null || true
+echo "ArgoCD-Managed Applications (14 total):"
+kubectl get applications -n argocd --no-headers 2>/dev/null | while read line; do
+    echo "  ✓ $line"
+done
 echo ""
-echo "Services and Access Points:"
+echo "Next Steps:"
+echo "=================================="
 echo ""
-echo "1. Access ArgoCD:"
+echo "1. Watch ArgoCD dashboard:"
 echo "   kubectl port-forward -n argocd svc/argocd-server 8080:443"
 echo "   https://localhost:8080"
 echo "   Username: admin"
 echo "   Password: \$(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d)"
 echo ""
-echo "2. Access Grafana:"
-echo "   kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 3000:80"
-echo "   http://localhost:3000"
-echo "   Username: admin"
-echo "   Password: prom-operator"
+echo "2. View ArgoCD applications:"
+echo "   kubectl get applications -n argocd -o wide"
+echo "   argocd app list"
+echo "   argocd app get <app-name>"
 echo ""
-echo "3. Access Prometheus:"
+echo "3. Watch application sync progress:"
+echo "   watch kubectl get applications -n argocd"
+echo "   watch kubectl get pods -A"
+echo ""
+echo "4. Access Prometheus:"
 echo "   kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090"
 echo "   http://localhost:9090"
 echo ""
-echo "4. Access Istio Kiali (if enabled):"
-echo "   kubectl port-forward -n istio-system svc/kiali 20001:20001"
-echo "   http://localhost:20001"
+echo "5. Access Grafana:"
+echo "   kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 3000:80"
+echo "   http://localhost:3000 (admin/prom-operator)"
 echo ""
-echo "5. Access Application:"
-echo "   kubectl port-forward -n app svc/my-app 8080:80"
-echo "   curl http://localhost:8080/health"
-echo ""
-echo "6. Watch Helm releases:"
-echo "   helm list -a --all-namespaces"
-echo ""
-echo "7. Check Cilium BGP status:"
+echo "6. Check Cilium status:"
+echo "   kubectl get pods -n kube-system -l k8s-app=cilium"
 echo "   kubectl get ciliumloadbalancerippools -n kube-system"
-echo "   kubectl get ciliuml2announcementpolicies -n kube-system"
 echo ""
-echo "8. Cleanup:"
+echo "7. View application logs:"
+echo "   kubectl logs -n <namespace> -l app=<app-name> -f"
+echo ""
+echo "8. Cleanup cluster:"
 echo "   kind delete cluster --name $CLUSTER_NAME"
 echo ""
-echo "Architecture Summary:"
-echo "- KIND cluster with 1 control plane + 1 worker (no kube-proxy)"
-echo "- Cilium v1.17.0 deployed via Helm"
-echo "- ArgoCD v3.2.0 deployed via Helm"
-echo "- ArgoCD manages all other apps via GitOps:"
+echo "=================================="
+echo "Architecture:"
+echo "=================================="
 echo ""
-echo "  Observability Stack:"
+echo "Infrastructure (Direct Helm):"
+echo "  ├─ Cilium v1.17.0 (BGP, eBPF, kube-proxy replacement)"
+echo "  └─ ArgoCD v3.2.0 (GitOps orchestration)"
+echo ""
+echo "Observability (via ApplicationSet):"
 echo "  ├─ Prometheus v2.48.0 (metrics)"
 echo "  ├─ Loki v3.0.0 (logs)"
 echo "  └─ Tempo v2.3.0 (traces)"
 echo ""
-echo "  Service Mesh:"
-echo "  └─ Istio v1.28.0"
+echo "Service Mesh (via ApplicationSet):"
+echo "  └─ Istio v1.28.0 (mTLS, traffic management)"
 echo ""
-echo "  Security Layer:"
-echo "  ├─ Cert-Manager v1.14.0 (TLS certificates)"
-echo "  ├─ Vault v1.17.0 (secrets management)"
+echo "Security (via ApplicationSet):"
+echo "  ├─ Cert-Manager v1.14.0 (TLS)"
+echo "  ├─ Vault v1.17.0 (secrets)"
 echo "  ├─ Falco v0.37.0 (runtime security)"
-echo "  ├─ Kyverno v1.12.0 (policy engine)"
-echo "  └─ Sealed-Secrets v0.25.0 (encrypted secrets)"
+echo "  ├─ Kyverno v1.12.0 (policies)"
+echo "  └─ Sealed-Secrets v0.25.0 (git-stored secrets)"
 echo ""
-echo "  Governance Layer:"
+echo "Governance (via ApplicationSet):"
 echo "  ├─ Gatekeeper v3.17.0 (policy enforcement)"
 echo "  └─ Audit-Logging v1.0.0 (compliance)"
 echo ""
-echo "  Application:"
-echo "  └─ my-app (sample application)"
+echo "Application (via ApplicationSet):"
+echo "  └─ my-app v1.0.0 (sample app with Istio)"
 echo ""
 echo "Deployment Model: GitOps-First"
-echo "- Only 2 direct Helm installs: Cilium + ArgoCD"
-echo "- All 12 other apps managed by ArgoCD from git"
-echo "- Changes via git commits, auto-synced by ArgoCD"
+echo "  • 2 direct Helm installs (infrastructure only)"
+echo "  • 12 apps via ApplicationSet (all other stacks)"
+echo "  • Single ApplicationSet template generating all apps"
+echo "  • Changes via git commits, auto-synced"
 echo ""

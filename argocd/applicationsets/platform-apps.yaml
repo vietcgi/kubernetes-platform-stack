@@ -1,10 +1,7 @@
-{{- /*
-Enterprise ApplicationSet Template
-Generates all platform applications from a single source of truth
-
-This uses the list generator to create Applications for all platform apps
-with consistent configuration and policies.
-*/ -}}
+# Enterprise ApplicationSet Template
+# Generates all platform applications from a single source of truth
+# This uses the list generator to create Applications for all platform apps
+# with consistent configuration and policies.
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
@@ -127,18 +124,13 @@ spec:
 
       # Dynamic sync policy based on app type
       syncPolicy:
-        {{- if eq .syncPolicy "aggressive" }}
         automated:
+          {{- if eq .syncPolicy "aggressive" }}
           prune: true
-          selfHeal: true
-        {{- else if eq .syncPolicy "conservative" }}
-        automated:
+          {{- else }}
           prune: false
+          {{- end }}
           selfHeal: true
-        {{- else }}
-        # Manual sync
-        {{- end }}
-
         syncOptions:
           - CreateNamespace=true
           - RespectIgnoreDifferences=true

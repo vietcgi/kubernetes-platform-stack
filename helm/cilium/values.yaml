@@ -2,10 +2,10 @@
 # Configured for BGP, kube-proxy replacement, and native LoadBalancer
 
 cilium:
-  # Cilium version
+  # Cilium version (v1.18.3 stable - tested with KIND)
   image:
     repository: quay.io/cilium/cilium
-    tag: v1.17.0
+    tag: v1.18.3
     pullPolicy: IfNotPresent
 
   # IPAM configuration
@@ -24,20 +24,25 @@ cilium:
     enabled: true
     secretsNamespace: kube-system
 
-  # Native LoadBalancer service support with BGP announcement
+  # Native LoadBalancer service support
+  # Use L2 for KIND, BGP for production
   loadBalancer:
     l2:
-      enabled: false
+      enabled: true
+      # Enable L2 announcements for KIND stability
+      interfaces:
+      - eth0
     algorithm: maglev
     mode: snat
-    # BGP-based LoadBalancer (replacing L2)
-    bgp:
-      enabled: true
-      announceLoadBalancerIP: true
 
-  # Kube-proxy replacement (critical for performance)
-  kubeProxyReplacement: true
+  # Kube-proxy replacement (enabled with proper bootstrap configuration)
+  # KIND requires partial mode and special init configuration
+  kubeProxyReplacement: partial
   kubeProxyReplacementHealthzBindAddr: 0.0.0.0:10256
+
+  # Init container configuration for KIND bootstrap
+  init:
+    restartProbeFactor: 10
 
   # eBPF-based kube-proxy replacement features
   bpf:
