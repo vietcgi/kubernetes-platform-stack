@@ -4,23 +4,29 @@ All platform services are exposed through Kong API Gateway using a unified domai
 
 ## Accessing Services
 
+### Kong LoadBalancer IP
+The Kong API Gateway is exposed via LoadBalancer with EXTERNAL-IP: **172.18.0.2**
+
 ### Configure Local Hosts File
 
 Add these entries to your `/etc/hosts` file:
 
 ```bash
-# Kong Ingress Routes
-127.0.0.1 prometheus.demo.local
-127.0.0.1 grafana.demo.local
-127.0.0.1 loki.demo.local
-127.0.0.1 argocd.demo.local
-127.0.0.1 vault.demo.local
-127.0.0.1 harbor.demo.local
-127.0.0.1 jaeger.demo.local
-127.0.0.1 kong-admin.demo.local
+# Kong Ingress Routes (KIND cluster on Docker)
+172.18.0.2 prometheus.demo.local
+172.18.0.2 grafana.demo.local
+172.18.0.2 loki.demo.local
+172.18.0.2 argocd.demo.local
+172.18.0.2 vault.demo.local
+172.18.0.2 harbor.demo.local
+172.18.0.2 jaeger.demo.local
+172.18.0.2 kong-admin.demo.local
 ```
 
-**Or use `localhost` (127.0.0.1) for local development.**
+**Note:** The IP `172.18.0.2` is the control plane node IP. If using a different KIND cluster, verify with:
+```bash
+kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}'
+```
 
 ### Service Endpoints
 
