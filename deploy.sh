@@ -59,7 +59,6 @@ helm repo update cilium 2>/dev/null || true
 helm install cilium cilium/cilium \
   --namespace kube-system \
   --set kubeProxyReplacement=true \
-  --set l2announcements.enabled=true \
   --wait --timeout=5m 2>&1 | tail -5
 log_info "Waiting for Cilium to be ready..."
 kubectl wait --for=condition=Ready pod -l k8s-app=cilium -n kube-system --timeout=5m 2>/dev/null || true
