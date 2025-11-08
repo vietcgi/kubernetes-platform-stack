@@ -232,7 +232,7 @@ spec:
               service:
                 type: LoadBalancer
             {{ else if eq .name "kong" }}
-            # Kong API Gateway with LoadBalancer service
+            # Kong API Gateway with LoadBalancer and hostNetwork for KIND port access
             admin:
               enabled: true
               service:
@@ -241,6 +241,11 @@ spec:
               service:
                 type: LoadBalancer
               containerPort: 8000
+            # Use hostNetwork to make Kong accessible on host ports (80/443)
+            podSecurityPolicy:
+              enabled: false
+            deployment:
+              hostNetwork: true
             {{ else if eq .name "harbor" }}
             # Harbor container registry
             persistence:

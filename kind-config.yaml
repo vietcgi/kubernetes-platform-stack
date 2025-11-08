@@ -8,13 +8,6 @@ networking:
 nodes:
 - role: control-plane
   image: kindest/node:v1.34.0
-  extraPortMappings:
-  - containerPort: 8080
-    hostPort: 8080
-    protocol: TCP
-  - containerPort: 8443
-    hostPort: 8443
-    protocol: TCP
   # Label for BGP speaker
   labels:
     bgp: enabled
@@ -22,11 +15,11 @@ nodes:
 - role: worker
   image: kindest/node:v1.34.0
   extraPortMappings:
-  - containerPort: 8080
-    hostPort: 8080
+  - containerPort: 8000
+    hostPort: 80
     protocol: TCP
   - containerPort: 8443
-    hostPort: 8443
+    hostPort: 443
     protocol: TCP
   labels:
     bgp: enabled
