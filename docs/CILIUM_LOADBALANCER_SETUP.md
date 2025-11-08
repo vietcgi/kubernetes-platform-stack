@@ -57,23 +57,42 @@ For local development with KIND, the LoadBalancer IPs are allocated from the Doc
 - Docker Bridge: `172.18.0.0/16`
 - KIND Control Plane: `172.18.0.2`
 - KIND Worker: `172.18.0.3`
-- **LoadBalancer Pool: `172.18.1.0/24`** (automatically routed to host)
+- **LoadBalancer Pool: `172.18.1.0/24`** (usable range: 172.18.1.1 - 172.18.1.254)
 
-**Why This Works:**
-- Docker automatically routes 172.18.0.0/16 traffic to the host
-- LoadBalancer IPs (172.18.1.x) are part of the same bridge network
-- L2 announcements propagate to the host automatically
-- Services get real external IPs without NodePort complexity
+**How It Works:**
+- Cilium assigns LoadBalancer IPs from 172.18.1.x range
+- Services get real external IPs (visible in `kubectl get svc`)
+- IPs are routable **within the cluster** (pod-to-pod communication)
+- L2 announcements work internally for cluster networking
 
-**Access Pattern:**
+**Access Limitations (Expected):**
+- LoadBalancer IPs are NOT directly accessible from the host
+- This is a KIND/Docker limitation (L2 announcements don't cross Docker bridge boundary)
+- Use **NodePort** or **kubectl port-forward** to access from host instead
+
+**Proper Access Patterns:**
+
 ```bash
-# Kong example with LoadBalancer
+# 1. View LoadBalancer IP (works within cluster only)
 kubectl get svc -n api-gateway kong-kong-proxy
 # Shows EXTERNAL-IP: 172.18.1.x
 
-# Access from host:
-curl http://172.18.1.x:80/
+# 2. Access via NodePort from host ✓
+curl http://172.18.0.2:30608/
+
+# 3. Access via port-forward from host ✓
+kubectl port-forward -n api-gateway svc/kong-kong-proxy 8000:80
+curl http://localhost:8000/
+
+# 4. Access from within cluster using LoadBalancer IP ✓
+kubectl run -it debug --image=curl -- curl http://172.18.1.x:80/
 ```
+
+**Why Use LoadBalancer on KIND?**
+- Allows testing LoadBalancer-based deployments
+- Services work correctly within cluster (multi-pod communication)
+- Production-ready configuration that's tested in local dev
+- NodePort/port-forward only needed for host access (not production issue)
 
 ## How to Apply (For Production)
 

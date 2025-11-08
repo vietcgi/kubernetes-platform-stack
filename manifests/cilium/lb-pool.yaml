@@ -6,5 +6,8 @@ spec:
   # Allocate IPs from Docker bridge network for KIND
   # 172.18.0.0/16 is KIND's Docker network
   # Using 172.18.1.0/24 for LoadBalancer services (reachable from host)
+  # Explicitly specify usable IP range (.1 to .254, excluding network .0 and broadcast .255)
   blocks:
     - cidr: "172.18.1.0/24"
+      start: "172.18.1.1"
+      stop: "172.18.1.254"
