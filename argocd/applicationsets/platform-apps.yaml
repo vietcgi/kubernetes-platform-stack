@@ -246,6 +246,10 @@ spec:
               enabled: false
             deployment:
               hostNetwork: true
+            # Enable Kong Ingress Controller for ingress routing
+            ingressController:
+              enabled: true
+              installCRDs: true
             {{ else if eq .name "harbor" }}
             # Harbor container registry
             persistence:
