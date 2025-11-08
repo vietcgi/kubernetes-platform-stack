@@ -52,17 +52,10 @@ log_info "Creating KIND cluster '$CLUSTER_NAME' (v1.34.0)..."
 kind create cluster --config "$SCRIPT_DIR/kind-config.yaml" --name "$CLUSTER_NAME"
 sleep 5
 
-# Step 2.5: Install Cilium CNI (REQUIRED - cluster has disableDefaultCNI and kubeProxyMode=none)
-log_info "Installing Cilium CNI (required for network functionality)..."
-helm repo add cilium https://helm.cilium.io 2>/dev/null || true
-helm repo update cilium 2>/dev/null || true
-helm install cilium cilium/cilium \
-  --namespace kube-system \
-  --set kubeProxyReplacement=true \
-  --wait --timeout=5m 2>&1 | tail -5
-log_info "Waiting for Cilium to be ready..."
-kubectl wait --for=condition=Ready pod -l k8s-app=cilium -n kube-system --timeout=5m 2>/dev/null || true
-sleep 10
+# Step 2.5: Wait for default CNI (kindnet) to be ready
+log_info "Waiting for default CNI to be ready..."
+kubectl wait --for=condition=Ready pod -l k8s-app=kindnet -n kube-system --timeout=5m 2>/dev/null || true
+sleep 5
 
 # Step 3: Build and load Docker image
 log_info "Building and loading Docker image..."
