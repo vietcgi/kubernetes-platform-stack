@@ -1,0 +1,297 @@
+# ArgoCD NetworkPolicies with DNS egress support
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: argocd-repo-server-network-policy
+  namespace: argocd
+  labels:
+    app.kubernetes.io/component: repo-server
+    app.kubernetes.io/name: argocd-repo-server
+    app.kubernetes.io/part-of: argocd
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: argocd-repo-server
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: argocd-server
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: argocd-application-controller
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: argocd-notifications-controller
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: argocd-applicationset-controller
+    ports:
+    - port: 8081
+      protocol: TCP
+  - from:
+    - namespaceSelector: {}
+    ports:
+    - port: 8084
+      protocol: TCP
+  egress:
+  # Allow DNS lookups to any namespace
+  - to:
+    - namespaceSelector: {}
+    ports:
+    - port: 53
+      protocol: UDP
+    - port: 53
+      protocol: TCP
+  # Allow connection to Redis
+  - to:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: argocd-redis
+    ports:
+    - port: 6379
+      protocol: TCP
+  # Allow outbound HTTPS for git operations and helm repos
+  - to:
+    - namespaceSelector: {}
+    ports:
+    - port: 443
+      protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: argocd-application-controller-network-policy
+  namespace: argocd
+  labels:
+    app.kubernetes.io/component: application-controller
+    app.kubernetes.io/name: argocd-application-controller
+    app.kubernetes.io/part-of: argocd
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: argocd-application-controller
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: argocd-metrics
+    ports:
+    - port: 8085
+      protocol: TCP
+  egress:
+  # Allow DNS lookups
+  - to:
+    - namespaceSelector: {}
+    ports:
+    - port: 53
+      protocol: UDP
+    - port: 53
+      protocol: TCP
+  # Allow to repo-server
+  - to:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: argocd-repo-server
+    ports:
+    - port: 8081
+      protocol: TCP
+  # Allow to redis
+  - to:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: argocd-redis
+    ports:
+    - port: 6379
+      protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: argocd-applicationset-controller-network-policy
+  namespace: argocd
+  labels:
+    app.kubernetes.io/component: applicationset-controller
+    app.kubernetes.io/name: argocd-applicationset-controller
+    app.kubernetes.io/part-of: argocd
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: argocd-applicationset-controller
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: argocd-metrics
+    ports:
+    - port: 8085
+      protocol: TCP
+  egress:
+  # Allow DNS lookups
+  - to:
+    - namespaceSelector: {}
+    ports:
+    - port: 53
+      protocol: UDP
+    - port: 53
+      protocol: TCP
+  # Allow to repo-server
+  - to:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: argocd-repo-server
+    ports:
+    - port: 8081
+      protocol: TCP
+  # Allow to redis
+  - to:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: argocd-redis
+    ports:
+    - port: 6379
+      protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: argocd-server-network-policy
+  namespace: argocd
+  labels:
+    app.kubernetes.io/component: server
+    app.kubernetes.io/name: argocd-server
+    app.kubernetes.io/part-of: argocd
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: argocd-server
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector: {}
+    ports:
+    - port: 80
+      protocol: TCP
+    - port: 443
+      protocol: TCP
+  egress:
+  # Allow DNS lookups
+  - to:
+    - namespaceSelector: {}
+    ports:
+    - port: 53
+      protocol: UDP
+    - port: 53
+      protocol: TCP
+  # Allow to repo-server
+  - to:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: argocd-repo-server
+    ports:
+    - port: 8081
+      protocol: TCP
+  # Allow to redis
+  - to:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: argocd-redis
+    ports:
+    - port: 6379
+      protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: argocd-dex-server-network-policy
+  namespace: argocd
+  labels:
+    app.kubernetes.io/component: dex-server
+    app.kubernetes.io/name: argocd-dex-server
+    app.kubernetes.io/part-of: argocd
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: argocd-dex-server
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: argocd-server
+    ports:
+    - port: 5556
+      protocol: TCP
+  egress:
+  # Allow DNS lookups
+  - to:
+    - namespaceSelector: {}
+    ports:
+    - port: 53
+      protocol: UDP
+    - port: 53
+      protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: argocd-notifications-controller-network-policy
+  namespace: argocd
+  labels:
+    app.kubernetes.io/component: notifications-controller
+    app.kubernetes.io/name: argocd-notifications-controller
+    app.kubernetes.io/part-of: argocd
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: argocd-notifications-controller
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: argocd-metrics
+    ports:
+    - port: 8085
+      protocol: TCP
+  egress:
+  # Allow DNS lookups
+  - to:
+    - namespaceSelector: {}
+    ports:
+    - port: 53
+      protocol: UDP
+    - port: 53
+      protocol: TCP
+  # Allow to repo-server
+  - to:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: argocd-repo-server
+    ports:
+    - port: 8081
+      protocol: TCP
+  # Allow to redis
+  - to:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: argocd-redis
+    ports:
+    - port: 6379
+      protocol: TCP

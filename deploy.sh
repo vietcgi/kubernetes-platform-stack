@@ -257,14 +257,23 @@ for i in {1..120}; do
 done
 sleep 10
 
-# Step 9: Apply Kyverno CRD compatibility layer (fixes v3.5.2 sanity check failures)
+# Step 9: Apply ArgoCD NetworkPolicies with DNS egress support
+log_info "Applying ArgoCD NetworkPolicies with DNS and egress support..."
+if [ -f "$SCRIPT_DIR/manifests/argocd/network-policies.yaml" ]; then
+    kubectl apply -f "$SCRIPT_DIR/manifests/argocd/network-policies.yaml" 2>&1 | tail -5
+    sleep 3
+else
+    log_warn "ArgoCD NetworkPolicies not found: $SCRIPT_DIR/manifests/argocd/network-policies.yaml"
+fi
+
+# Step 10: Apply Kyverno CRD compatibility layer (fixes v3.5.2 sanity check failures)
 log_info "Applying Kyverno CRD compatibility layer..."
 if [ -f "$SCRIPT_DIR/manifests/kyverno/crds-compat.yaml" ]; then
     kubectl apply -f "$SCRIPT_DIR/manifests/kyverno/crds-compat.yaml" 2>&1 | tail -3
     sleep 2
 fi
 
-# Step 10: Apply ApplicationSet to generate all platform applications
+# Step 11: Apply ApplicationSet to generate all platform applications
 log_info "Applying ApplicationSet to generate platform applications..."
 if [ ! -f "$SCRIPT_DIR/argocd/applicationsets/platform-apps.yaml" ]; then
     log_error "ApplicationSet file not found: $SCRIPT_DIR/argocd/applicationsets/platform-apps.yaml"
@@ -282,7 +291,7 @@ else
     log_warn "Kong ingress Application not found: $SCRIPT_DIR/argocd/applications/kong-ingress.yaml"
 fi
 
-# Step 11: Wait for all applications to be created by ApplicationSet
+# Step 12: Wait for all applications to be created by ApplicationSet
 log_info "Waiting for ApplicationSet to generate applications..."
 sleep 5
 max_attempts=30
@@ -298,7 +307,7 @@ while [ $attempts -lt $max_attempts ]; do
     ((attempts++))
 done
 
-# Step 12: Wait for all applications to sync
+# Step 13: Wait for all applications to sync
 log_info "Waiting for all applications to sync and become healthy..."
 sleep 10
 
@@ -333,7 +342,7 @@ for app in $all_apps; do
     done
 done
 
-# Step 13: Final verification and summary
+# Step 14: Final verification and summary
 log_info "Verifying all applications are deployed..."
 echo ""
 echo "======================================"
