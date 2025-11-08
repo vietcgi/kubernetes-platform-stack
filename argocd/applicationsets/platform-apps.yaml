@@ -100,14 +100,6 @@ spec:
         group: governance
 
       # Enterprise Features - Ingress & API Management
-      - name: ingress-nginx
-        namespace: ingress-nginx
-        repoURL: https://kubernetes.github.io/ingress-nginx
-        chart: ingress-nginx
-        version: "*"
-        syncPolicy: aggressive
-        group: infrastructure
-
       - name: external-dns
         namespace: external-dns
         repoURL: https://kubernetes-sigs.github.io/external-dns/
@@ -186,14 +178,6 @@ spec:
             prometheus:
               prometheusSpec:
                 podMonitorNamespaceSelector: {}
-            {{ else if eq .name "ingress-nginx" }}
-            # Nginx ingress controller configuration
-            controller:
-              service:
-                type: LoadBalancer
-              metrics:
-                enabled: true
-              ingressClass: nginx
             {{ else if eq .name "external-dns" }}
             # External DNS for automatic DNS record management
             policy: sync
@@ -284,7 +268,6 @@ data:
   # Platform applications inventory
   platform-apps: |
     infrastructure:
-      - ingress-nginx
       - external-dns
       - kong
       - longhorn

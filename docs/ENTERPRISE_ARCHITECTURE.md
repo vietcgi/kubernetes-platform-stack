@@ -18,7 +18,7 @@ This is a production-grade, enterprise-ready Kubernetes platform designed for mu
 │  Networking & CNI                       │
 │  ├─ Cilium (kube-proxy replacement)     │
 │  ├─ Network Policies (Zero-trust)       │
-│  ├─ Ingress Controller (nginx)          │
+│  ├─ Kong API Gateway (Ingress)          │
 │  └─ External DNS (automatic DNS)        │
 └─────────────────────────────────────────┘
         ↓
