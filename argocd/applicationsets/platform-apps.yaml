@@ -23,6 +23,7 @@ spec:
         version: "*"
         syncPolicy: aggressive
         group: observability
+        syncWave: 1
 
       - name: loki
         namespace: monitoring
@@ -31,6 +32,7 @@ spec:
         version: "*"
         syncPolicy: aggressive
         group: observability
+        syncWave: 1
 
       - name: tempo
         namespace: monitoring
@@ -39,6 +41,7 @@ spec:
         version: "*"
         syncPolicy: aggressive
         group: observability
+        syncWave: 1
 
       # Service Mesh
       - name: istio
@@ -48,6 +51,7 @@ spec:
         version: "*"
         syncPolicy: conservative
         group: service_mesh
+        syncWave: 2
 
       # Security Layer
       - name: cert-manager
@@ -57,6 +61,7 @@ spec:
         version: "*"
         syncPolicy: aggressive
         group: security
+        syncWave: 0
 
       - name: vault
         namespace: vault
@@ -65,6 +70,7 @@ spec:
         version: "*"
         syncPolicy: aggressive
         group: security
+        syncWave: 3
 
       - name: falco
         namespace: falco
@@ -73,6 +79,7 @@ spec:
         version: "*"
         syncPolicy: aggressive
         group: security
+        syncWave: 3
 
       - name: kyverno
         namespace: kyverno
@@ -81,6 +88,7 @@ spec:
         version: "*"
         syncPolicy: aggressive
         group: security
+        syncWave: 3
 
       - name: sealed-secrets
         namespace: sealed-secrets
@@ -89,6 +97,7 @@ spec:
         version: "*"
         syncPolicy: aggressive
         group: security
+        syncWave: 3
 
       # Governance Layer
       - name: gatekeeper
@@ -98,6 +107,7 @@ spec:
         version: "*"
         syncPolicy: aggressive
         group: governance
+        syncWave: 3
 
       # Enterprise Features - Ingress & API Management
       - name: external-dns
@@ -107,6 +117,7 @@ spec:
         version: "*"
         syncPolicy: aggressive
         group: infrastructure
+        syncWave: 0
 
       - name: kong
         namespace: api-gateway
@@ -115,6 +126,7 @@ spec:
         version: "*"
         syncPolicy: aggressive
         group: infrastructure
+        syncWave: 2
 
       # Enterprise Features - Storage & Backup
       - name: longhorn
@@ -124,6 +136,7 @@ spec:
         version: "*"
         syncPolicy: aggressive
         group: infrastructure
+        syncWave: 4
 
       - name: velero
         namespace: velero
@@ -132,6 +145,7 @@ spec:
         version: "*"
         syncPolicy: aggressive
         group: infrastructure
+        syncWave: 4
 
       # Enterprise Features - Advanced Observability
       - name: jaeger
@@ -141,6 +155,7 @@ spec:
         version: "*"
         syncPolicy: aggressive
         group: observability
+        syncWave: 2
 
       # Enterprise Features - Container Registry
       - name: harbor
@@ -150,6 +165,7 @@ spec:
         version: "*"
         syncPolicy: aggressive
         group: infrastructure
+        syncWave: 4
 
   template:
     metadata:
@@ -158,6 +174,10 @@ spec:
         app.kubernetes.io/name: '{{ .name }}'
         app.kubernetes.io/group: '{{ .group }}'
         app.kubernetes.io/managed-by: applicationset
+      {{ if .syncWave }}
+      annotations:
+        argocd.argoproj.io/sync-wave: "{{ .syncWave }}"
+      {{ end }}
       finalizers:
         - resources-finalizer.argocd.argoproj.io
     spec:
@@ -203,9 +223,18 @@ spec:
                   template:
                     ttl: "720h"
             {{ else if eq .name "jaeger" }}
-            # Jaeger distributed tracing
+            # Jaeger distributed tracing with in-memory storage (suitable for KIND)
             provisionDataStore:
-              cassandra: true
+              cassandra: false
+              elasticsearch: false
+            storage:
+              type: memory
+            collector:
+              service:
+                type: LoadBalancer
+            query:
+              service:
+                type: LoadBalancer
             {{ else if eq .name "kong" }}
             # Kong API Gateway
             admin:
@@ -234,21 +263,21 @@ spec:
         syncOptions:
           - CreateNamespace=true
           - RespectIgnoreDifferences=true
+          - ServerSideApply=true
+          - SkipDryRunOnMissingResource=true
         retry:
-          limit: 5
+          limit: 10
           backoff:
             duration: 5s
             factor: 2
-            maxDuration: 3m
+            maxDuration: 5m
       ignoreDifferences:
         - group: apiextensions.k8s.io
           kind: CustomResourceDefinition
           jsonPointers:
             - /spec/conversion
-        - group: apiextensions.k8s.io
-          kind: CustomResourceDefinition
-          jsonPointers:
             - /status
+            - /metadata/annotations
   goTemplateOptions: ["missingkey=error"]
   templatePatch: |
     spec:
