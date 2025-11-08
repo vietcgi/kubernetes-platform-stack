@@ -56,10 +56,11 @@ resources:
     memory: 128Mi
 
 autoscaling:
-  enabled: false
+  enabled: true
   minReplicas: 2
   maxReplicas: 10
   targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
 
 nodeSelector: {}
 
@@ -82,6 +83,10 @@ readinessProbe:
   initialDelaySeconds: 5
   periodSeconds: 5
   timeoutSeconds: 3
+
+config:
+  logLevel: "INFO"
+  environment: "production"
 
 env:
   - name: LOG_LEVEL
