@@ -232,19 +232,15 @@ spec:
               service:
                 type: LoadBalancer
             {{ else if eq .name "kong" }}
-            # Kong API Gateway with LoadBalancer and hostPort for KIND
+            # Kong API Gateway with LoadBalancer service
             admin:
               enabled: true
               service:
-                type: LoadBalancer
+                type: ClusterIP
             proxy:
               service:
                 type: LoadBalancer
               containerPort: 8000
-              servicePort: 80
-            # Enable hostPort for KIND port mappings (80/443 -> container)
-            podAnnotations:
-              kong.ingress.kubernetes.io/plugins: "rate-limiting"
             {{ else if eq .name "harbor" }}
             # Harbor container registry
             persistence:
