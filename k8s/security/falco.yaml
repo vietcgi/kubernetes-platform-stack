@@ -3,68 +3,56 @@ kind: Namespace
 metadata:
   name: falco
 ---
-apiVersion: helm.fluxcd.io/v1
-kind: HelmRelease
+apiVersion: v1
+kind: ServiceAccount
 metadata:
   name: falco
   namespace: falco
-spec:
-  interval: 5m
-  chart:
-    spec:
-      chart: falco
-      sourceRef:
-        kind: HelmRepository
-        name: falcosecurity
-        namespace: falco
-  values:
-    image:
-      repository: falcosecurity/falco
-      tag: 0.36.0
-    falco:
-      grpc:
-        enabled: true
-      grpcOutput:
-        enabled: true
-    ebpf:
-      enabled: true
-    serviceAccount:
-      create: true
-      name: falco
-    podSecurityPolicy:
-      create: true
-    resources:
-      requests:
-        cpu: 100m
-        memory: 128Mi
-      limits:
-        cpu: 1000m
-        memory: 1024Mi
-    tolerations:
-    - key: node-role.kubernetes.io/control-plane
-      operator: Exists
-      effect: NoSchedule
-    nodeSelector: {}
-    affinity: {}
-    customRules: |
-      - rule: Unauthorized Process
-        desc: Detect unauthorized process execution
-        condition: >
-          spawned_process and container and
-          not proc.name in (allowed_processes)
-        output: >
-          Unauthorized process execution (user=%user.name command=%proc.cmdline container=%container.info)
-        priority: WARNING
-        tags: [process, container, security]
-      - rule: Sensitive File Access
-        desc: Detect access to sensitive files
-        condition: >
-          open and container and
-          fd.name glob /etc/shadow or fd.name glob /etc/passwd
-        output: >
-          Sensitive file accessed (user=%user.name file=%fd.name container=%container.info)
-        priority: CRITICAL
-        tags: [file, container, security]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: falco
+rules:
+- apiGroups: [""]
+  resources: ["nodes"]
+  verbs: ["get", "list"]
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list"]
+- apiGroups: [""]
+  resources: ["events"]
+  verbs: ["create", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: falco
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: falco
+subjects:
+- kind: ServiceAccount
+  name: falco
+  namespace: falco
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: falco-config
+  namespace: falco
+data:
+  falco.yaml: |
+    engine: ebpf
+    base_syscall_buffer_size: 1024
+    outputs:
+      rate: 100
+      max_burst: 1000
+    rule_matching: first
+    rules_file:
+      - /etc/falco/rules.yaml
+      - /etc/falco/custom-rules.yaml
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -92,3 +80,92 @@ data:
         Privilege escalation attempt (user=%user.name process=%proc.name container=%container.info)
       priority: CRITICAL
       tags: [privilege, container, security]
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: falco
+  namespace: falco
+spec:
+  selector:
+    matchLabels:
+      app: falco
+  template:
+    metadata:
+      labels:
+        app: falco
+    spec:
+      serviceAccountName: falco
+      hostNetwork: true
+      hostPID: true
+      hostIPC: true
+      dnsPolicy: ClusterFirstWithHostNet
+      containers:
+      - name: falco
+        image: falcosecurity/falco:0.36.0
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          privileged: true
+          runAsUser: 0
+        volumeMounts:
+        - name: docker
+          mountPath: /var/run/docker.sock
+        - name: containerd
+          mountPath: /run/containerd
+        - name: crio
+          mountPath: /run/crio
+        - name: boot
+          mountPath: /boot
+          readOnly: true
+        - name: lib
+          mountPath: /lib
+          readOnly: true
+        - name: usr
+          mountPath: /usr
+          readOnly: true
+        - name: etc
+          mountPath: /etc
+          readOnly: true
+        - name: falco-config
+          mountPath: /etc/falco
+        - name: falco-rules
+          mountPath: /etc/falco/custom-rules.yaml
+          subPath: custom-rules.yaml
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+      tolerations:
+      - key: node-role.kubernetes.io/control-plane
+        effect: NoSchedule
+      volumes:
+      - name: docker
+        hostPath:
+          path: /var/run/docker.sock
+      - name: containerd
+        hostPath:
+          path: /run/containerd
+      - name: crio
+        hostPath:
+          path: /run/crio
+      - name: boot
+        hostPath:
+          path: /boot
+      - name: lib
+        hostPath:
+          path: /lib
+      - name: usr
+        hostPath:
+          path: /usr
+      - name: etc
+        hostPath:
+          path: /etc
+      - name: falco-config
+        configMap:
+          name: falco-config
+      - name: falco-rules
+        configMap:
+          name: falco-custom-rules
