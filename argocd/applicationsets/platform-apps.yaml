@@ -27,7 +27,7 @@ spec:
 
       - name: coredns
         namespace: kube-system
-        repoURL: https://coredns.io/helm
+        repoURL: https://coredns.github.io/helm
         chart: coredns
         version: "*"
         syncPolicy: aggressive
