@@ -1,0 +1,9 @@
+# Platform Library Values
+# This is a library chart with shared templates
+# No default values needed - templates are used by dependent charts
+
+# Library metadata
+library:
+  name: platform-library
+  version: "1.0.0"
+  description: "Shared templates and helpers for Kubernetes Platform Stack"

@@ -18,7 +18,7 @@ Usage: {{ include "platform-library.containerSecurityContext" .Values.securityCo
 allowPrivilegeEscalation: {{ .allowPrivilegeEscalation | default false }}
 capabilities:
   drop:
-    {{- .capabilities.drop | default (list "ALL") | toJson | fromJson | range }}
+    {{- range .capabilities.drop | default (list "ALL") }}
     - {{ . }}
     {{- end }}
 {{- if .readOnlyRootFilesystem }}
