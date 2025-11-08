@@ -247,6 +247,15 @@ fi
 kubectl apply -f "$SCRIPT_DIR/argocd/applicationsets/platform-apps.yaml"
 sleep 10
 
+# Apply Kong ingress routes Application (managed by ArgoCD)
+log_info "Applying Kong Ingress Routes Application..."
+if [ -f "$SCRIPT_DIR/argocd/applications/kong-ingress.yaml" ]; then
+    kubectl apply -f "$SCRIPT_DIR/argocd/applications/kong-ingress.yaml"
+    sleep 5
+else
+    log_warn "Kong ingress Application not found: $SCRIPT_DIR/argocd/applications/kong-ingress.yaml"
+fi
+
 # Step 10: Wait for all applications to be created by ApplicationSet
 log_info "Waiting for ApplicationSet to generate applications..."
 sleep 5
@@ -298,23 +307,7 @@ for app in $all_apps; do
     done
 done
 
-# Step 12: Apply Kong Ingress Routes for platform services
-log_info "Applying Kong Ingress routes for platform services..."
-if [ -f "$SCRIPT_DIR/manifests/kong/ingress-routes.yaml" ]; then
-    kubectl apply -f "$SCRIPT_DIR/manifests/kong/ingress-routes.yaml" 2>&1 | tail -5
-    sleep 3
-
-    # Verify ingress routes are created
-    ingress_count=$(kubectl get ingress -A 2>/dev/null | tail -n +2 | wc -l)
-    log_info "✓ Kong ingress routes applied ($ingress_count total ingresses)"
-    log_info "  Access services via: <service>.demo.local"
-    log_info "  Example: prometheus.demo.local, grafana.demo.local, argocd.demo.local"
-else
-    log_warn "Kong ingress routes file not found: $SCRIPT_DIR/manifests/kong/ingress-routes.yaml"
-fi
-sleep 5
-
-# Step 13: Final verification and summary
+# Step 12: Final verification and summary
 log_info "Verifying all applications are deployed..."
 echo ""
 echo "======================================"
