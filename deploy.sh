@@ -111,19 +111,16 @@ kubectl wait --for=condition=Ready pod -l app.kubernetes.io/name=prometheus -n m
 
 # Step 8: Install Loki for log aggregation
 log_info "Installing Loki (log aggregation)..."
-helm install loki grafana/loki-stack \
+helm install loki "$SCRIPT_DIR/helm/loki" \
   --namespace monitoring \
-  --set loki.enabled=true \
-  --set promtail.enabled=true \
-  --set grafana.datasources.loki.enabled=true \
+  --values "$SCRIPT_DIR/helm/loki/values.yaml" \
   --wait --timeout=5m 2>&1 | tail -5
 
 # Step 9: Install Tempo for distributed tracing
 log_info "Installing Tempo (distributed tracing)..."
-helm install tempo grafana/tempo \
+helm install tempo "$SCRIPT_DIR/helm/tempo" \
   --namespace monitoring \
-  --set persistence.enabled=true \
-  --set persistence.size=5Gi \
+  --values "$SCRIPT_DIR/helm/tempo/values.yaml" \
   --wait --timeout=5m 2>&1 | tail -5
 
 # Step 10: Install ArgoCD for GitOps

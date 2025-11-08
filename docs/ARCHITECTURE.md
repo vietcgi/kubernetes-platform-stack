@@ -4,7 +4,7 @@
 
 This is an enterprise-grade Kubernetes platform built on KIND (Kubernetes in Docker) with production-ready security, networking, observability, and governance components. The platform is fully GitOps-managed through ArgoCD.
 
-## Architecture Diagram
+##   Diagram
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐

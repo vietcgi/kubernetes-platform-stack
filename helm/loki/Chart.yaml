@@ -1,0 +1,18 @@
+apiVersion: v2
+name: loki
+description: A Helm chart for Loki log aggregation stack with Promtail
+type: application
+version: 1.0.0
+appVersion: "3.0.0"
+keywords:
+  - loki
+  - logs
+  - log-aggregation
+  - promtail
+  - grafana
+maintainers:
+  - name: Kubernetes Platform Stack
+dependencies:
+  - name: loki-stack
+    version: "2.10.2"
+    repository: "https://grafana.github.io/helm-charts"

@@ -1,0 +1,212 @@
+# Loki Stack Helm Chart Values
+# Log aggregation with Loki and Promtail
+
+loki-stack:
+  # Loki Configuration
+  loki:
+    enabled: true
+    image:
+      repository: grafana/loki
+      tag: 3.0.0
+      pullPolicy: IfNotPresent
+
+    # Persistence for logs
+    persistence:
+      enabled: true
+      storageClassName: standard
+      size: 10Gi
+      # For KIND, can use emptyDir temporarily
+      # emptyDir: {}
+
+    # Resource requests/limits
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 200m
+        memory: 512Mi
+
+    # Loki configuration
+    config:
+      auth_enabled: false
+
+      ingester:
+        chunk_idle_period: 3m
+        max_chunk_age: 1h
+        chunk_retain_period: 1m
+
+      limits_config:
+        enforce_metric_name: false
+        max_entries_limit_per_second: 20000
+        retention_period: 720h  # 30 days
+
+      schema_config:
+        configs:
+        - from: 2020-10-24
+          store: boltdb-shipper
+          object_store: filesystem
+          schema: v11
+          index:
+            prefix: index_
+            period: 24h
+
+      server:
+        http_listen_port: 3100
+
+      storage_config:
+        boltdb_shipper:
+          active_index_directory: /loki/boltdb-shipper-active
+          shared_store: filesystem
+        filesystem:
+          directory: /loki/chunks
+
+      chunk_store_config:
+        max_look_back_period: 0s
+
+      table_manager:
+        retention_deletes_enabled: false
+        retention_period: 0s
+
+  # Promtail Configuration (Log Shipper)
+  promtail:
+    enabled: true
+    image:
+      repository: grafana/promtail
+      tag: 3.0.0
+      pullPolicy: IfNotPresent
+
+    # Deployed as DaemonSet on all nodes
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 100m
+        memory: 256Mi
+
+    # Promtail configuration
+    config:
+      clients:
+      - url: http://loki:3100/loki/api/v1/push
+
+      scrape_configs:
+      # Scrape logs from pods
+      - job_name: kubernetes-pods
+        kubernetes_sd_configs:
+        - role: pod
+        relabel_configs:
+        # Use pod labels as metric labels
+        - source_labels: [__meta_kubernetes_pod_label_app]
+          action: replace
+          target_label: app
+        - source_labels: [__meta_kubernetes_pod_label_version]
+          action: replace
+          target_label: version
+        # Add namespace
+        - source_labels: [__meta_kubernetes_namespace]
+          action: replace
+          target_label: namespace
+        # Add pod name
+        - source_labels: [__meta_kubernetes_pod_name]
+          action: replace
+          target_label: pod
+        # Add container name
+        - source_labels: [__meta_kubernetes_pod_container_name]
+          action: replace
+          target_label: container
+
+      # Scrape logs from kubelet
+      - job_name: kubernetes-nodes
+        kubernetes_sd_configs:
+        - role: node
+        relabel_configs:
+        - action: labelmap
+          regex: __meta_kubernetes_node_label_(.+)
+        - target_label: __address__
+          replacement: kubernetes.default.svc:443
+        - source_labels: [__meta_kubernetes_node_name]
+          regex: (.+)
+          replacement: /api/v1/nodes/${1}/proxy/logs/
+          target_label: __path__
+
+  # Grafana Integration
+  grafana:
+    enabled: false  # Grafana is deployed separately
+    # But Loki configures itself as a datasource
+
+  # Service Monitor for Prometheus
+  serviceMonitor:
+    enabled: true
+    namespace: monitoring
+    interval: 30s
+    labels:
+      release: prometheus
+
+  # Service configuration
+  service:
+    type: ClusterIP
+    port: 3100
+    annotations: {}
+
+  # RBAC
+  rbac:
+    create: true
+    pspEnabled: false
+
+  # Pod Security Context
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    fsGroup: 1000
+
+  # Container Security Context
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+      - ALL
+    readOnlyRootFilesystem: true
+
+  # Update strategy
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+
+  # Node affinity (optional)
+  nodeSelector: {}
+
+  tolerations: []
+
+  affinity: {}
+
+# Application-level configuration
+application:
+  # Apps to scrape logs from
+  namespaces:
+    - app
+    - monitoring
+    - istio-system
+    - kube-system
+
+  # Labels to match for scraping
+  podLabelSelectors:
+    - app
+    - app.kubernetes.io/name
+    - k8s-app
+
+# Retention and storage
+retention:
+  enabled: true
+  days: 30  # Keep logs for 30 days
+
+# Backup (optional)
+backup:
+  enabled: false
+  schedule: "0 2 * * *"  # Daily at 2 AM
+
+# Alerts (optional)
+alerts:
+  enabled: false
+  rules: []

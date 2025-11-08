@@ -1,0 +1,259 @@
+# Grafana Tempo Helm Chart Values
+# Distributed tracing backend with OTLP/Jaeger support
+
+tempo:
+  # Image configuration
+  image:
+    repository: grafana/tempo
+    tag: 2.3.0
+    pullPolicy: IfNotPresent
+
+  # Number of replicas
+  replicas: 1
+
+  # Persistence configuration
+  persistence:
+    enabled: true
+    storageClassName: standard
+    size: 5Gi
+    # For KIND, can use emptyDir temporarily
+    # emptyDir: {}
+
+  # Resource requests/limits
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 512Mi
+
+  # Service configuration
+  service:
+    type: ClusterIP
+    port: 3100
+    targetPort: 3100
+    annotations: {}
+
+  # Tempo configuration
+  config:
+    # Trace ingestion receivers
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:4317
+          http:
+            endpoint: 0.0.0.0:4318
+      jaeger:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:14250
+          thrift_http:
+            endpoint: 0.0.0.0:14268
+      zipkin:
+        endpoint: 0.0.0.0:9411
+
+    # Trace processing attributes
+    attributes:
+      actions:
+      - key: http.method
+        action: upsert
+      - key: http.url
+        action: upsert
+      - key: http.status_code
+        action: upsert
+
+    # Metrics generation (create metrics from traces)
+    metrics_generator:
+      enabled: true
+      collection_interval: 15s
+      metrics:
+        - name: traces_spanmetrics_latency
+        - name: traces_spanmetrics_call_rate
+
+    # Storage backend
+    storage:
+      trace:
+        backend: local
+        local:
+          path: /var/tempo/traces
+        wal:
+          path: /var/tempo/wal
+
+    # Data retention
+    retention: 24h
+
+    # Server configuration
+    server:
+      http_listen_port: 3100
+      grpc_listen_port: 4317
+
+    # Querying/reading
+    querier:
+      frontend_worker:
+        frontend_address: 127.0.0.1:3100
+
+    # Query frontend (optional, for caching)
+    query_frontend:
+      compress_responses: true
+      max_cache_freshness_bytes: 1e6
+
+    # Distributor configuration
+    distributor:
+      rate_limit_enabled: true
+      rate_limit: 6000  # traces per second
+
+    # Ingester configuration
+    ingester:
+      lifecycler:
+        ring:
+          replication_factor: 1
+      trace_idle_period: 10s
+      trace_retention: 5m
+
+    # Compactor configuration
+    compactor:
+      compaction:
+        interval: 30s
+        block_retention: 1h
+        compacted_block_retention: 10m
+
+  # Pod Security Context
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    fsGroup: 1000
+
+  # Container Security Context
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+      - ALL
+    readOnlyRootFilesystem: true
+
+  # RBAC
+  rbac:
+    create: true
+
+  # Service Account
+  serviceAccount:
+    create: true
+    name: tempo
+
+  # Update strategy
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+
+  # Node affinity (optional)
+  nodeSelector: {}
+
+  tolerations: []
+
+  affinity: {}
+
+  # Pod Disruption Budget
+  podDisruptionBudget:
+    enabled: false
+    minAvailable: 0
+
+  # Service Monitor for Prometheus
+  serviceMonitor:
+    enabled: true
+    namespace: monitoring
+    interval: 30s
+    labels:
+      release: prometheus
+
+  # Ingress (optional, not needed for internal use)
+  ingress:
+    enabled: false
+
+# Trace receiver configuration
+receivers:
+  # OpenTelemetry Protocol (OTLP) - primary for Istio
+  otlp:
+    enabled: true
+    grpcPort: 4317
+    httpPort: 4318
+
+  # Jaeger for compatibility
+  jaeger:
+    enabled: true
+    grpcPort: 14250
+    thriftPort: 14268
+
+  # Zipkin for compatibility
+  zipkin:
+    enabled: true
+    port: 9411
+
+# Data retention
+retention:
+  enabled: true
+  duration: 24h  # Keep traces for 24 hours
+
+# Sampling configuration
+sampling:
+  enabled: false
+  # Uncomment to enable sampling
+  # rate: 0.1  # Sample 10% of traces
+  # policies:
+  #   - name: error-traces
+  #     type: status_code
+  #     status_code:
+  #       status_codes: [ERROR]
+  #   - name: slow-traces
+  #     type: latency
+  #     latency:
+  #       threshold_ms: 1000
+
+# Performance tuning
+performance:
+  # Block size for compression
+  blockCompression: gzip
+
+  # Encoding for trace data
+  encoding: protobuf
+
+  # Cache settings
+  cache:
+    enabled: true
+    size: 100m
+
+# Integration points
+integrations:
+  # Istio sidecar sends traces here
+  istio:
+    enabled: true
+    endpoint: tempo:4317
+
+  # Prometheus scrapes metrics from Tempo
+  prometheus:
+    enabled: true
+    scrapeInterval: 30s
+
+  # Grafana queries traces from Tempo
+  grafana:
+    enabled: true
+    datasourceUrl: tempo:3100
+
+# Alerting (optional)
+alerts:
+  enabled: false
+  rules: []
+
+# Backup/Export (optional)
+backup:
+  enabled: false
+  schedule: "0 3 * * *"  # Daily at 3 AM
+
+# Multi-tenancy (optional)
+multiTenancy:
+  enabled: false
+  # tenants:
+  #   - istio-system
+  #   - app
