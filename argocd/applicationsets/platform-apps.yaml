@@ -20,7 +20,7 @@ spec:
         namespace: monitoring
         repoURL: https://prometheus-community.github.io/helm-charts
         chart: kube-prometheus-stack
-        version: "55.0.0"
+        version: "*"
         syncPolicy: aggressive
         group: observability
 
@@ -28,7 +28,7 @@ spec:
         namespace: monitoring
         repoURL: https://grafana.github.io/helm-charts
         chart: loki-stack
-        version: "2.9.0"
+        version: "*"
         syncPolicy: aggressive
         group: observability
 
@@ -36,7 +36,7 @@ spec:
         namespace: monitoring
         repoURL: https://grafana.github.io/helm-charts
         chart: tempo
-        version: "1.6.0"
+        version: "*"
         syncPolicy: aggressive
         group: observability
 
@@ -45,7 +45,7 @@ spec:
         namespace: istio-system
         repoURL: https://istio-release.storage.googleapis.com/charts
         chart: istiod
-        version: "1.28.0"
+        version: "*"
         syncPolicy: conservative
         group: service_mesh
 
@@ -54,7 +54,7 @@ spec:
         namespace: cert-manager
         repoURL: https://charts.jetstack.io
         chart: cert-manager
-        version: "1.14.0"
+        version: "*"
         syncPolicy: aggressive
         group: security
 
@@ -62,7 +62,7 @@ spec:
         namespace: vault
         repoURL: https://helm.releases.hashicorp.com
         chart: vault
-        version: "0.27.0"
+        version: "*"
         syncPolicy: aggressive
         group: security
 
@@ -70,7 +70,7 @@ spec:
         namespace: falco
         repoURL: https://falcosecurity.github.io/charts
         chart: falco
-        version: "0.37.0"
+        version: "*"
         syncPolicy: aggressive
         group: security
 
@@ -78,7 +78,7 @@ spec:
         namespace: kyverno
         repoURL: https://kyverno.github.io/kyverno
         chart: kyverno
-        version: "1.12.0"
+        version: "*"
         syncPolicy: aggressive
         group: security
 
@@ -86,7 +86,7 @@ spec:
         namespace: sealed-secrets
         repoURL: https://bitnami-labs.github.io/sealed-secrets
         chart: sealed-secrets
-        version: "0.25.0"
+        version: "*"
         syncPolicy: aggressive
         group: security
 
@@ -95,7 +95,7 @@ spec:
         namespace: gatekeeper-system
         repoURL: https://open-policy-agent.github.io/gatekeeper/charts
         chart: gatekeeper
-        version: "3.17.0"
+        version: "*"
         syncPolicy: aggressive
         group: governance
 
