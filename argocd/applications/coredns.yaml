@@ -51,13 +51,12 @@ spec:
     server: https://kubernetes.default.svc
     namespace: kube-system
   syncPolicy:
-    automated:
-      selfHeal: true
-      prune: true
     syncOptions:
       - CreateNamespace=true
       - RespectIgnoreDifferences=true
       - SkipDryRunOnMissingResource=true
+    # Disabled auto-sync to avoid conflicts with system-managed CoreDNS
+    # Manual sync can be triggered when needed
     retry:
       limit: 10
       backoff:
