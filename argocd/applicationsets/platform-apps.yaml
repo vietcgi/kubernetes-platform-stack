@@ -355,6 +355,14 @@ spec:
           kind: Job
           name: longhorn-pre-upgrade
           namespace: longhorn-system
+        - group: networking.k8s.io
+          kind: Ingress
+          name: loki
+          namespace: monitoring
+        - group: networking.k8s.io
+          kind: Ingress
+          name: vault
+          namespace: vault
   goTemplateOptions: ["missingkey=error"]
   templatePatch: |
     metadata:
