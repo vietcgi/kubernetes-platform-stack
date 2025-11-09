@@ -208,7 +208,7 @@ sleep 5
 # NOTE: CoreDNS is managed through ArgoCD as part of the platform applications
 # This keeps the entire stack consistent with the GitOps approach
 log_info "Adding coredns Helm repo for ArgoCD..."
-helm repo add coredns https://coredns.io/helm --force-update 2>&1 | tail -2
+helm repo add coredns https://coredns.github.io/helm --force-update 2>&1 | tail -2
 
 # Step 8: Install ArgoCD for GitOps orchestration
 log_info "Installing ArgoCD (v3.2.0) for GitOps..."

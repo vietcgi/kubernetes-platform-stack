@@ -12,7 +12,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://coredns.io/helm
+    repoURL: https://coredns.github.io/helm
     chart: coredns
     targetRevision: '*'
     helm:
