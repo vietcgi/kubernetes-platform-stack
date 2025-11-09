@@ -200,6 +200,7 @@ spec:
               enabled: true
             {{ else if eq .name "prometheus" }}
             # Kube-prometheus-stack needs extra settings for KIND
+            # Note: CRD annotations may exceed 262KB limit - ignore differences to prevent sync failures
             prometheus:
               prometheusSpec:
                 podMonitorNamespaceSelector: {}
@@ -223,6 +224,13 @@ spec:
                 hosts:
                   - grafana.demo.local
                 path: /
+            # Disable webhook to prevent CRD installation issues on KIND
+            kubeStateMetrics:
+              enabled: true
+            nodeExporter:
+              enabled: true
+            grafana:
+              adminPassword: prom-operator
             {{ else if eq .name "external-dns" }}
             # External DNS for automatic DNS record management
             policy: sync
@@ -340,6 +348,7 @@ spec:
           - CreateNamespace=true
           - RespectIgnoreDifferences=true
           - SkipDryRunOnMissingResource=true
+          - ServerSideApply=true
         retry:
           limit: 10
           backoff:
