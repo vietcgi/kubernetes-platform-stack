@@ -237,7 +237,10 @@ spec:
                 annotations:
                   konghq.com/strip-path: "true"
                 hosts:
-                  - loki.demo.local
+                  - host: loki.demo.local
+                    paths:
+                      - path: /
+                        pathType: Prefix
             {{ else if eq .name "longhorn" }}
             # Longhorn persistent storage
             # Skip pre-upgrade hooks to avoid service account dependency issues
@@ -252,9 +255,9 @@ spec:
             # Velero backup and disaster recovery
             configuration:
               backupStorageLocation:
-                name: default
-                provider: aws
-                bucket: velero-backups
+                - name: default
+                  provider: aws
+                  bucket: velero-backups
               schedules:
                 daily:
                   schedule: "0 2 * * *"
