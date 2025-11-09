@@ -131,18 +131,18 @@ kubectl label namespace app istio-injection=enabled --overwrite || true
 
 # Step 5: Install CoreDNS as system component (MUST be before Cilium)
 log_info "Installing CoreDNS as system component..."
-# Clean up KIND's default CoreDNS installation (ConfigMap and Deployment)
-kubectl delete deployment coredns -n kube-system --ignore-not-found 2>/dev/null
+# Clean up any existing CoreDNS ConfigMap from KIND's default installation
 kubectl delete configmap coredns -n kube-system --ignore-not-found 2>/dev/null
-sleep 2
 
 helm repo add coredns https://coredns.github.io/helm --force-update 2>&1 | tail -2
+# Use --force to override any existing resources
 helm install coredns coredns/coredns \
   --namespace kube-system \
   --set replicaCount=2 \
   --set service.clusterIP=10.96.0.10 \
   --wait \
-  --timeout 5m 2>&1 | tail -5
+  --timeout 5m \
+  --force 2>&1 | tail -5
 sleep 5
 
 # Verify CoreDNS is running
