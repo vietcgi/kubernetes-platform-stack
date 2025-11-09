@@ -149,24 +149,30 @@ if [ "$coredns_ready" -eq 0 ]; then
     log_warn "CoreDNS not fully ready but continuing..."
 fi
 
-# Step 5b: Optimize CoreDNS resources for laptop deployment
-log_info "Deploying CoreDNS system component..."
-kubectl patch deployment coredns -n kube-system --type='json' -p='[
-  {
-    "op": "replace",
-    "path": "/spec/template/spec/containers/0/resources",
-    "value": {
-      "limits": {
-        "cpu": "100m",
-        "memory": "64Mi"
-      },
-      "requests": {
-        "cpu": "50m",
-        "memory": "32Mi"
+# Step 5b: Optimize CoreDNS resources for laptop deployment (created by KIND)
+log_info "Optimizing CoreDNS for laptop deployment..."
+# CoreDNS is already created by KIND with label k8s-app=kube-dns
+# Only patch resources if deployment exists and is accessible
+if kubectl get deployment kube-dns -n kube-system &>/dev/null 2>&1; then
+    kubectl patch deployment kube-dns -n kube-system --type='json' -p='[
+      {
+        "op": "replace",
+        "path": "/spec/template/spec/containers/0/resources",
+        "value": {
+          "limits": {
+            "cpu": "100m",
+            "memory": "64Mi"
+          },
+          "requests": {
+            "cpu": "50m",
+            "memory": "32Mi"
+          }
+        }
       }
-    }
-  }
-]' 2>/dev/null || log_warn "Could not patch CoreDNS resources"
+    ]' 2>/dev/null || log_warn "Could not optimize CoreDNS resources"
+else
+    log_warn "CoreDNS deployment (kube-dns) not found, skipping resource optimization"
+fi
 
 sleep 5
 
