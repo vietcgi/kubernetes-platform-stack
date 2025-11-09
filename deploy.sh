@@ -204,40 +204,13 @@ else
 fi
 sleep 5
 
-# Step 7: Deploy CoreDNS via official Helm chart
-log_info "Installing CoreDNS via official Helm chart..."
+# Step 7: CoreDNS will be deployed by ArgoCD as a managed application
+# NOTE: CoreDNS is managed through ArgoCD as part of the platform applications
+# This keeps the entire stack consistent with the GitOps approach
+log_info "CoreDNS will be deployed by ArgoCD (managed via Application CRD)"
+log_info "Adding coredns Helm repo for ArgoCD to use..."
 helm repo add coredns https://coredns.io/helm --force-update
-helm repo update coredns
-
-# Deploy CoreDNS in kube-system namespace
-helm upgrade --install coredns coredns/coredns \
-  --namespace kube-system \
-  --set service.clusterIP=10.96.0.10 \
-  --set replicaCount=2 \
-  --set resources.requests.cpu=50m \
-  --set resources.requests.memory=50Mi \
-  --set resources.limits.cpu=100m \
-  --set resources.limits.memory=128Mi \
-  2>&1 | tail -5
-
-sleep 10
-
-# Verify CoreDNS is running
-coredns_ready=0
-for i in {1..30}; do
-    coredns_pods=$(kubectl get pods -n kube-system -l app.kubernetes.io/name=coredns --field-selector=status.phase=Running 2>/dev/null | tail -n +2 | wc -l | xargs)
-    if [ "$coredns_pods" -ge 1 ]; then
-        coredns_ready=1
-        log_info "✓ CoreDNS is running ($coredns_pods pods)"
-        break
-    fi
-    sleep 2
-done
-
-if [ "$coredns_ready" -eq 0 ]; then
-    log_warn "CoreDNS deployment taking longer than expected, continuing anyway..."
-fi
-sleep 5
+sleep 3
 
 # Step 8: Install ArgoCD for GitOps orchestration
 log_info "Installing ArgoCD (v3.2.0) for GitOps..."
@@ -287,6 +260,15 @@ if [ ! -f "$SCRIPT_DIR/argocd/applicationsets/platform-apps.yaml" ]; then
 fi
 kubectl apply -f "$SCRIPT_DIR/argocd/applicationsets/platform-apps.yaml"
 sleep 10
+
+# Apply CoreDNS Application (managed by ArgoCD)
+log_info "Applying CoreDNS Application..."
+if [ -f "$SCRIPT_DIR/argocd/applications/coredns.yaml" ]; then
+    kubectl apply -f "$SCRIPT_DIR/argocd/applications/coredns.yaml"
+    sleep 5
+else
+    log_warn "CoreDNS Application not found: $SCRIPT_DIR/argocd/applications/coredns.yaml"
+fi
 
 # Apply Kong ingress routes Application (managed by ArgoCD)
 log_info "Applying Kong Ingress Routes Application..."
