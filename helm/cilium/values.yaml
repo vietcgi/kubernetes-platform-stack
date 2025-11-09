@@ -80,8 +80,15 @@ cilium:
       interval: 30s
 
   # Network Policy engine
+  # NOTE: Policy enforcement disabled (set to 'none') to avoid circular dependency
+  # that blocks DNS resolution in development environments
+  # For production, set to 'default' and implement NetworkPolicies
   networkPolicy:
-    enabled: true
+    enabled: false
+
+  # Policy Enforcement Mode
+  # Set to 'none' to disable policy enforcement but keep NetworkPolicy CRDs available
+  policyEnforcementMode: "none"
 
   # Pod Execution Spaces
   podExecutionSpaces:
