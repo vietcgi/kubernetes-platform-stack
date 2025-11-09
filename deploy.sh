@@ -151,10 +151,10 @@ fi
 
 # Step 5b: Optimize CoreDNS resources for laptop deployment (created by KIND)
 log_info "Optimizing CoreDNS for laptop deployment..."
-# CoreDNS is already created by KIND with label k8s-app=kube-dns
+# CoreDNS is already created by KIND with label k8s-app=coredns
 # Only patch resources if deployment exists and is accessible
-if kubectl get deployment kube-dns -n kube-system &>/dev/null 2>&1; then
-    kubectl patch deployment kube-dns -n kube-system --type='json' -p='[
+if kubectl get deployment coredns -n kube-system &>/dev/null 2>&1; then
+    kubectl patch deployment coredns -n kube-system --type='json' -p='[
       {
         "op": "replace",
         "path": "/spec/template/spec/containers/0/resources",
@@ -171,7 +171,7 @@ if kubectl get deployment kube-dns -n kube-system &>/dev/null 2>&1; then
       }
     ]' 2>/dev/null || log_warn "Could not optimize CoreDNS resources"
 else
-    log_warn "CoreDNS deployment (kube-dns) not found, skipping resource optimization"
+    log_warn "CoreDNS deployment (coredns) not found, skipping resource optimization"
 fi
 
 sleep 5
