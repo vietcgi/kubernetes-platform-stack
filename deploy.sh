@@ -129,27 +129,12 @@ kubectl create namespace audit-logging --dry-run=client -o yaml | kubectl apply 
 kubectl label namespace monitoring istio-injection=enabled --overwrite || true
 kubectl label namespace app istio-injection=enabled --overwrite || true
 
-# Step 5: Install CoreDNS as system component (MUST be before Cilium)
-log_info "Installing CoreDNS as system component..."
-# Clean up any existing CoreDNS ConfigMap from KIND's default installation
-kubectl delete configmap coredns -n kube-system --ignore-not-found 2>/dev/null
-
-helm repo add coredns https://coredns.github.io/helm --force-update 2>&1 | tail -2
-# Use --force to override any existing resources
-helm install coredns coredns/coredns \
-  --namespace kube-system \
-  --set replicaCount=2 \
-  --set service.clusterIP=10.96.0.10 \
-  --wait \
-  --timeout 5m \
-  --force 2>&1 | tail -5
-sleep 5
-
-# Verify CoreDNS is running
+# Step 5: CoreDNS is installed by KIND - verify it's running
+log_info "Verifying CoreDNS is running..."
 coredns_ready=0
 for i in {1..30}; do
-    coredns_pods=$(kubectl get pods -n kube-system -l app.kubernetes.io/name=coredns --field-selector=status.phase=Running 2>/dev/null | tail -n +2 | wc -l || echo "0")
-    if [ "$coredns_pods" -ge 2 ]; then
+    coredns_pods=$(kubectl get pods -n kube-system -l k8s-app=coredns --field-selector=status.phase=Running 2>/dev/null | tail -n +2 | wc -l || echo "0")
+    if [ "$coredns_pods" -ge 1 ]; then
         log_info "✓ CoreDNS is ready with $coredns_pods pods"
         coredns_ready=1
         break
