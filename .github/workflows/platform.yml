@@ -126,7 +126,7 @@ jobs:
           EOF
 
       - name: Create KIND cluster
-        uses: helm/kind-action@v1.7.0
+        uses: helm/kind-action@v1.13.0
         with:
           cluster_name: platform
           config: /tmp/kind-config.yaml
