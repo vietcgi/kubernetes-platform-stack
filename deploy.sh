@@ -392,7 +392,7 @@ fi
 # Step 12: Wait for all applications to be created by ApplicationSet
 log_info "Waiting for ApplicationSet to generate applications..."
 sleep 2
-max_attempts=30
+max_attempts=60
 attempts=0
 while [ $attempts -lt $max_attempts ]; do
     app_count=$(kubectl get applications -n argocd 2>/dev/null | tail -n +2 | wc -l || echo "0")
@@ -401,9 +401,13 @@ while [ $attempts -lt $max_attempts ]; do
         break
     fi
     log_info "Applications created: $app_count/14 (waiting...)"
-    sleep 2
+    sleep 5
     ((attempts++))
 done
+
+if [ "$app_count" -lt 14 ]; then
+    log_warn "ApplicationSet only created $app_count/14 applications (timeout). This may happen in development environments."
+fi
 
 # Step 13: Wait for all applications to sync
 log_info "Waiting for all applications to sync and become healthy..."
