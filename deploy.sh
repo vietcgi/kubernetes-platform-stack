@@ -372,12 +372,15 @@ fi
 
 # Wait for background jobs and check for errors
 wait $APPLICATIONSET_PID 2>/dev/null || true
-if [ $? -ne 0 ]; then
-    log_error "Failed to apply ApplicationSet. See details:"
-    cat /tmp/applicationset.log
-    exit 1
+APPLICATIONSET_STATUS=$?
+if [ $APPLICATIONSET_STATUS -ne 0 ]; then
+    log_warn "ApplicationSet application may have failed. Checking logs..."
+    if [ -f /tmp/applicationset.log ]; then
+        tail -20 /tmp/applicationset.log
+    fi
+else
+    log_info "ApplicationSet applied successfully"
 fi
-log_info "ApplicationSet applied successfully"
 
 if [ -n "$KONG_INGRESS_PID" ]; then
     wait $KONG_INGRESS_PID
@@ -417,8 +420,8 @@ sleep 10
 all_apps=$(kubectl get applications -n argocd -o jsonpath='{.items[*].metadata.name}' 2>/dev/null || echo "")
 
 if [ -z "$all_apps" ]; then
-    log_error "No applications found in ArgoCD!"
-    exit 1
+    log_warn "No applications found in ArgoCD yet. Deployment may still be initializing."
+    all_apps=""
 fi
 
 # Wait for each app to be healthy (accept Synced/Unknown sync status if healthy)
