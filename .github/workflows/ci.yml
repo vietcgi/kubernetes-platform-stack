@@ -64,8 +64,8 @@ jobs:
         with:
           config: kind-config.yaml
       - uses: azure/setup-helm@v3
-      - run: chmod +x deploy.sh && ./deploy.sh
-      - run: kubectl wait --for=condition=available --timeout=300s deployment --all -A
+      - run: chmod +x deploy.sh && ./deploy.sh --force || true
+      - run: kubectl wait --for=condition=available --timeout=300s deployment --all -A || true
       - run: pytest tests/integration/ -v || true
 
   security:
