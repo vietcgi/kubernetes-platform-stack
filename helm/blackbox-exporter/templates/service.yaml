@@ -4,10 +4,10 @@ metadata:
   name: {{ include "blackbox-exporter.fullname" . }}
   namespace: {{ .Release.Namespace | quote }}
   labels:
-    {{- include "blackbox-exporter.labels" . | nindent 4 }}
-  {{- with .Values.service.annotations }}
+{{- include "blackbox-exporter.labels" . | nindent 4 }}
+{{- with .Values.service.annotations }}
   annotations:
-    {{- toYaml . | nindent 4 }}
+{{- toYaml . | nindent 4 }}
   {{- end }}
 spec:
   type: {{ .Values.service.type }}
@@ -17,4 +17,4 @@ spec:
     protocol: TCP
     name: http
   selector:
-    {{- include "blackbox-exporter.selectorLabels" . | nindent 4 }}
+{{- include "blackbox-exporter.selectorLabels" . | nindent 4 }}

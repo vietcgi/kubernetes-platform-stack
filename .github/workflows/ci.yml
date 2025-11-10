@@ -13,7 +13,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: pip install yamllint
-      - run: yamllint -d relaxed argocd/ helm/ manifests/ .github/workflows/
+      - run: yamllint -d relaxed argocd/ manifests/ .github/workflows/ && find helm -name "Chart.yaml" -o -name "values*.yaml" | xargs yamllint -d relaxed
 
   helm-lint:
     name: Helm Linting

@@ -4,7 +4,7 @@ metadata:
   name: {{ include "blackbox-exporter.fullname" . }}
   namespace: {{ .Release.Namespace | quote }}
   labels:
-    {{- include "blackbox-exporter.labels" . | nindent 4 }}
+{{- include "blackbox-exporter.labels" . | nindent 4 }}
 data:
   blackbox.yml: |
     modules:

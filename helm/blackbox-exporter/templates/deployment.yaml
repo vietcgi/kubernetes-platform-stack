@@ -4,23 +4,23 @@ metadata:
   name: {{ include "blackbox-exporter.fullname" . }}
   namespace: {{ .Release.Namespace | quote }}
   labels:
-    {{- include "blackbox-exporter.labels" . | nindent 4 }}
+{{- include "blackbox-exporter.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.replicas }}
   selector:
     matchLabels:
-      {{- include "blackbox-exporter.selectorLabels" . | nindent 6 }}
+{{- include "blackbox-exporter.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
-        {{- include "blackbox-exporter.selectorLabels" . | nindent 8 }}
+{{- include "blackbox-exporter.selectorLabels" . | nindent 8 }}
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
     spec:
-      {{- with .Values.podSecurityContext }}
+{{- with .Values.podSecurityContext }}
       securityContext:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
+{{- toYaml . | nindent 8 }}
+{{- end }}
       containers:
       - name: blackbox-exporter
         image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
@@ -61,11 +61,11 @@ spec:
           name: {{ include "blackbox-exporter.fullname" . }}
       - name: tmp
         emptyDir: {}
-      {{- with .Values.affinity }}
+{{- with .Values.affinity }}
       affinity:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      {{- with .Values.tolerations }}
+{{- toYaml . | nindent 8 }}
+{{- end }}
+{{- with .Values.tolerations }}
       tolerations:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
+{{- toYaml . | nindent 8 }}
+{{- end }}

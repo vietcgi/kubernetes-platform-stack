@@ -5,11 +5,11 @@ metadata:
   name: {{ include "blackbox-exporter.fullname" . }}
   namespace: {{ .Values.serviceMonitor.namespace | quote }}
   labels:
-    {{- include "blackbox-exporter.labels" . | nindent 4 }}
+{{- include "blackbox-exporter.labels" . | nindent 4 }}
 spec:
   selector:
     matchLabels:
-      {{- include "blackbox-exporter.selectorLabels" . | nindent 6 }}
+{{- include "blackbox-exporter.selectorLabels" . | nindent 6 }}
   endpoints:
   - port: http
     interval: {{ .Values.serviceMonitor.interval }}
@@ -24,7 +24,7 @@ metadata:
   name: {{ include "blackbox-exporter.fullname" . }}
   namespace: {{ .Values.serviceMonitor.namespace | quote }}
   labels:
-    {{- include "blackbox-exporter.labels" . | nindent 4 }}
+{{- include "blackbox-exporter.labels" . | nindent 4 }}
 spec:
   groups:
   - name: blackbox-synthetic-monitoring
