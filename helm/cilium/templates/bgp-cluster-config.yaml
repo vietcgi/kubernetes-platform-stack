@@ -1,4 +1,4 @@
-{{- if .Values.bgp.clusterConfig.enabled }}
+{{- if .Values.bgpClusterConfig.enabled }}
 apiVersion: cilium.io/v2alpha1
 kind: CiliumBGPClusterConfig
 metadata:
@@ -7,15 +7,15 @@ metadata:
 spec:
   nodeSelector:
     matchLabels:
-      {{- toYaml .Values.bgp.clusterConfig.nodeSelector | nindent 6 }}
+      {{- toYaml .Values.bgpClusterConfig.nodeSelector | nindent 6 }}
   bgpInstances:
   - name: "bgp-65000"
-    localASN: {{ .Values.bgp.clusterConfig.localASN }}
-    exportPodCIDR: {{ .Values.bgp.clusterConfig.exportPodCIDR }}
-    routerID: "{{ .Values.bgp.clusterConfig.routerID }}"
+    localASN: {{ .Values.bgpClusterConfig.localASN }}
+    exportPodCIDR: {{ .Values.bgpClusterConfig.exportPodCIDR }}
+    routerID: "{{ .Values.bgpClusterConfig.routerID }}"
     neighbors:
-      {{- if .Values.bgp.neighbors.enabled }}
-      {{- range .Values.bgp.neighbors }}
+      {{- if .Values.bgpNeighbors.enabled }}
+      {{- range .Values.bgpNeighbors }}
       - peerAddress: "{{ .peerAddress }}"
         peerASN: {{ .asn }}
         gracefulRestart:
@@ -23,7 +23,7 @@ spec:
           restartTimeSeconds: {{ .gracefulRestart.restartTimeSeconds }}
       {{- end }}
       {{- end }}
-    {{- if .Values.bgp.advertisements.enabled }}
+    {{- if .Values.bgpAdvertisements.enabled }}
     advertisements:
       - advertisementType: "service"
         selector:

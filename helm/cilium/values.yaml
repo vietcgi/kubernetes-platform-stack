@@ -25,6 +25,23 @@ bgpControlPlane:
     create: false
     name: kube-system
 
+# BGP Cluster Configuration (disabled by default, enable for production BGP setups)
+bgpClusterConfig:
+  enabled: false
+  nodeSelector:
+    bgp-node: "true"
+  localASN: 65000
+  exportPodCIDR: true
+  routerID: "192.168.1.1"
+
+# BGP Neighbors (production BGP peers)
+bgpNeighbors:
+  enabled: false
+
+# BGP Advertisements
+bgpAdvertisements:
+  enabled: false
+
 # Native LoadBalancer service support
 # Use L2 for KIND, BGP for production
 loadBalancer:

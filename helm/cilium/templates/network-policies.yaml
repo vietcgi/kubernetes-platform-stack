@@ -1,4 +1,4 @@
-{{- if .Values.networkPolicies.enabled }}
+{{- if .Values.networkPolicy.enabled }}
 ---
 # Default Deny All Ingress
 apiVersion: cilium.io/v2
@@ -10,10 +10,8 @@ spec:
   endpointSelector: {}
   policyTypes:
   - Ingress
-  {{- if .Values.networkPolicies.defaultDeny }}
   ingress:
   # Allow nothing - everything denied by default
-  {{- end }}
 
 ---
 # Allow DNS resolution
@@ -47,14 +45,14 @@ metadata:
 spec:
   endpointSelector:
     matchLabels:
-      {{- toYaml .Values.networkPolicies.selector | nindent 6 }}
+      app: app
   policyTypes:
   - Ingress
   - Egress
   ingress:
   - fromEndpoints:
     - matchLabels:
-        {{- toYaml .Values.networkPolicies.selector | nindent 8 }}
+        app: app
     toPorts:
     - ports:
       - port: "8080"
@@ -64,7 +62,7 @@ spec:
   egress:
   - toEndpoints:
     - matchLabels:
-        {{- toYaml .Values.networkPolicies.selector | nindent 8 }}
+        app: app
   # Allow DNS
   - toEndpoints:
     - matchLabels:
@@ -84,7 +82,7 @@ metadata:
 spec:
   endpointSelector:
     matchLabels:
-      {{- toYaml .Values.networkPolicies.selector | nindent 6 }}
+      app: app
   policyTypes:
   - Ingress
   ingress:
