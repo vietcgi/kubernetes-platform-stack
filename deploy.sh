@@ -135,6 +135,7 @@ kubectl create namespace kyverno --dry-run=client -o yaml | kubectl apply -f -
 kubectl create namespace sealed-secrets --dry-run=client -o yaml | kubectl apply -f -
 kubectl create namespace gatekeeper-system --dry-run=client -o yaml | kubectl apply -f -
 kubectl create namespace audit-logging --dry-run=client -o yaml | kubectl apply -f -
+kubectl create namespace infrastructure --dry-run=client -o yaml | kubectl apply -f -
 
 # Step 4.5: Create PostgreSQL secret if it doesn't exist
 log_info "Creating PostgreSQL secret..."
