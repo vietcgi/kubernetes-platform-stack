@@ -107,27 +107,11 @@ jobs:
           kind create cluster \
             --name platform \
             --image kindest/node:v1.34.0 \
-            --config - << 'EOF'
-          kind: Cluster
-          apiVersion: kind.x-k8s.io/v1alpha4
-          nodes:
-          - role: control-plane
-            extraPortMappings:
-            - containerPort: 80
-              hostPort: 80
-              protocol: TCP
-            - containerPort: 443
-              hostPort: 443
-              protocol: TCP
-            - containerPort: 8080
-              hostPort: 8080
-              protocol: TCP
-          - role: worker
-          - role: worker
-          EOF
+            --wait 2m
 
-          echo "Cluster created. Waiting for nodes..."
-          sleep 15
+          echo "Cluster created. Checking nodes..."
+          sleep 5
+          kubectl get nodes
 
           echo "Getting kubeconfig..."
           kind get kubeconfig --name platform > /tmp/kubeconfig
