@@ -102,6 +102,8 @@ jobs:
 
       - name: Create KIND cluster
         run: |
+          set -e
+          echo "Creating KIND cluster..."
           kind create cluster \
             --name platform \
             --image kindest/node:v1.34.0 \
@@ -124,9 +126,14 @@ jobs:
           - role: worker
           EOF
 
-          sleep 10
+          echo "Cluster created. Waiting for nodes..."
+          sleep 15
+
+          echo "Getting kubeconfig..."
           kind get kubeconfig --name platform > /tmp/kubeconfig
           echo "KUBECONFIG=/tmp/kubeconfig" >> $GITHUB_ENV
+
+          echo "Cluster creation complete"
 
       - name: Verify cluster
         run: |
