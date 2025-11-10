@@ -374,6 +374,14 @@ spec:
               persistentVolumeClaim:
                 registry:
                   size: 5Gi
+            # Harbor database probe configuration (increase timeouts for PostgreSQL startup)
+            database:
+              livenessProbe:
+                timeoutSeconds: 5
+                initialDelaySeconds: 30
+              readinessProbe:
+                timeoutSeconds: 5
+                initialDelaySeconds: 15
             # Harbor ingress for Kong
             expose:
               type: ingress
