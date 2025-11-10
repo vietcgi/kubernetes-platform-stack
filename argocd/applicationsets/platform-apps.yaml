@@ -346,6 +346,16 @@ spec:
             {{ else if eq .name "tempo" }}
             # Tempo distributed tracing
             replicas: 1
+            ingress:
+              enabled: true
+              ingressClassName: kong
+              annotations:
+                konghq.com/strip-path: "true"
+              hosts:
+                - host: tempo.demo.local
+                  paths:
+                    - path: /
+                      pathType: Prefix
             {{ else if eq .name "longhorn" }}
             # Longhorn persistent storage
             # Disable pre-upgrade checker Job for GitOps compatibility (official Longhorn param)
