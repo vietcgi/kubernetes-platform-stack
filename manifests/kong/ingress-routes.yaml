@@ -30,8 +30,13 @@ metadata:
   namespace: api-gateway
   annotations:
     konghq.com/strip-path: "true"
+    konghq.com/protocols: "https"
 spec:
   ingressClassName: kong
+  tls:
+  - hosts:
+    - kong-admin.demo.local
+    secretName: kong-admin-tls
   rules:
   - host: kong-admin.demo.local
     http:
