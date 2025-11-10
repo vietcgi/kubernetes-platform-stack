@@ -241,8 +241,22 @@ spec:
             # Disable CRD upgrades (let operator manage them)
             disableMutation: false
             disableValidatingWebhook: false
-            # Gatekeeper ingress for Kong
+            # Gatekeeper audit viewer ingress for Kong
             enableExternalData: true
+            audit:
+              replicas: 1
+              auditChunkSize: 5000
+            auditViewer:
+              enabled: true
+              service:
+                type: ClusterIP
+              ingress:
+                enabled: true
+                ingressClassName: kong
+                annotations:
+                  konghq.com/strip-path: "true"
+                host: gatekeeper.demo.local
+                path: /
             {{ else if eq .name "sealed-secrets" }}
             # Sealed Secrets
             replicaCount: 1
@@ -413,6 +427,17 @@ spec:
             schedules: {}
             expose:
               nodePort: false
+            ui:
+              enabled: true
+              service:
+                type: ClusterIP
+              ingress:
+                enabled: true
+                ingressClassName: kong
+                annotations:
+                  konghq.com/strip-path: "true"
+                host: velero.demo.local
+                path: /
             {{ else if eq .name "jaeger" }}
             # Jaeger distributed tracing with in-memory storage (suitable for KIND)
             provisionDataStore:
