@@ -291,19 +291,10 @@ spec:
               - --kubelet-insecure-tls
               - --kubelet-preferred-address-types=InternalIP,ExternalIP,Hostname
             {{ else if eq .name "loki" }}
-            # Loki ingress enabled for Kong
+            # Loki backend logging service (accessed via Grafana datasources, not HTTP UI)
             loki:
               ingress:
-                enabled: true
-                ingressClassName: kong
-                annotations:
-                  konghq.com/strip-path: "true"
-                hosts:
-                  loki:
-                    host: loki.demo.local
-                    paths:
-                      - path: /
-                        pathType: Prefix
+                enabled: false
             # Disable Grafana (use the one from prometheus stack instead)
             grafana:
               enabled: false
@@ -331,18 +322,10 @@ spec:
             reportsUI:
               enabled: false
             {{ else if eq .name "tempo" }}
-            # Tempo distributed tracing
+            # Tempo distributed tracing backend (accessed via Grafana datasources, not HTTP UI)
             replicas: 1
             ingress:
-              enabled: true
-              ingressClassName: kong
-              annotations:
-                konghq.com/strip-path: "true"
-              hosts:
-                - host: tempo.demo.local
-                  paths:
-                    - path: /
-                      pathType: Prefix
+              enabled: false
             {{ else if eq .name "jaeger" }}
             # Jaeger distributed tracing with in-memory storage (suitable for KIND)
             provisionDataStore:
