@@ -1,0 +1,285 @@
+---
+# Kubernetes Platform Stack - Core Network Policies
+# Centralized network security policy management
+# Applied via ArgoCD for GitOps-based control
+
+# DNS Resolution Policy (kube-system)
+# Required for all pods to resolve DNS names
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: allow-dns
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/name: network-policies
+    app.kubernetes.io/component: core
+spec:
+  endpointSelector:
+    matchLabels:
+      k8s-app: coredns
+  description: "Allow DNS resolution from all pods to CoreDNS"
+  ingress:
+  - fromEndpoints:
+    - matchLabels: {}  # Allow from all pods
+    toPorts:
+    - ports:
+      - port: "53"
+        protocol: UDP
+      - port: "53"
+        protocol: TCP
+
+---
+# Inter-pod Communication Policy (Default namespace)
+# Allow pods in the same namespace to communicate
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: allow-same-namespace
+  namespace: default
+  labels:
+    app.kubernetes.io/name: network-policies
+    app.kubernetes.io/component: core
+spec:
+  endpointSelector: {}
+  description: "Allow pod-to-pod communication within default namespace"
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - fromEndpoints:
+    - matchLabels:
+        io.kubernetes.pod.namespace: default
+    toPorts:
+    - ports:
+      - port: "8080"
+        protocol: TCP
+      - port: "8443"
+        protocol: TCP
+      - port: "9090"
+        protocol: TCP
+  egress:
+  - toEndpoints:
+    - matchLabels:
+        io.kubernetes.pod.namespace: default
+  - toEndpoints:
+    - matchLabels:
+        k8s-app: coredns
+    toPorts:
+    - ports:
+      - port: "53"
+        protocol: UDP
+
+---
+# App Namespace Core Communication
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: allow-same-namespace
+  namespace: app
+  labels:
+    app.kubernetes.io/name: network-policies
+    app.kubernetes.io/component: core
+spec:
+  endpointSelector: {}
+  description: "Allow pod-to-pod communication within app namespace"
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - fromEndpoints:
+    - matchLabels:
+        io.kubernetes.pod.namespace: app
+    toPorts:
+    - ports:
+      - port: "8080"
+        protocol: TCP
+      - port: "8443"
+        protocol: TCP
+      - port: "9090"
+        protocol: TCP
+  egress:
+  - toEndpoints:
+    - matchLabels:
+        io.kubernetes.pod.namespace: app
+  - toEndpoints:
+    - matchLabels:
+        k8s-app: coredns
+    toPorts:
+    - ports:
+      - port: "53"
+        protocol: UDP
+
+---
+# Monitoring Namespace Core Communication
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: allow-same-namespace
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/name: network-policies
+    app.kubernetes.io/component: core
+spec:
+  endpointSelector: {}
+  description: "Allow pod-to-pod communication within monitoring namespace"
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - fromEndpoints:
+    - matchLabels:
+        io.kubernetes.pod.namespace: monitoring
+    toPorts:
+    - ports:
+      - port: "3000"
+        protocol: TCP  # Grafana
+      - port: "9090"
+        protocol: TCP  # Prometheus
+      - port: "3100"
+        protocol: TCP  # Loki
+      - port: "3200"
+        protocol: TCP  # Tempo
+      - port: "8080"
+        protocol: TCP  # Application metrics
+  egress:
+  - toEndpoints:
+    - matchLabels:
+        io.kubernetes.pod.namespace: monitoring
+  - toEndpoints:
+    - matchLabels:
+        k8s-app: coredns
+    toPorts:
+    - ports:
+      - port: "53"
+        protocol: UDP
+
+---
+# Istio System Namespace Core Communication
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: allow-same-namespace
+  namespace: istio-system
+  labels:
+    app.kubernetes.io/name: network-policies
+    app.kubernetes.io/component: core
+spec:
+  endpointSelector: {}
+  description: "Allow pod-to-pod communication within istio-system namespace"
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - fromEndpoints:
+    - matchLabels:
+        io.kubernetes.pod.namespace: istio-system
+    toPorts:
+    - ports:
+      - port: "15012"
+        protocol: TCP  # istiod xDS
+      - port: "15017"
+        protocol: TCP  # istiod webhook
+      - port: "15014"
+        protocol: TCP  # istiod metrics
+  egress:
+  - toEndpoints:
+    - matchLabels:
+        io.kubernetes.pod.namespace: istio-system
+  - toEndpoints:
+    - matchLabels:
+        k8s-app: coredns
+    toPorts:
+    - ports:
+      - port: "53"
+        protocol: UDP
+
+---
+# ArgoCD Namespace Core Communication
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: allow-same-namespace
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: network-policies
+    app.kubernetes.io/component: core
+spec:
+  endpointSelector: {}
+  description: "Allow pod-to-pod communication within argocd namespace"
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - fromEndpoints:
+    - matchLabels:
+        io.kubernetes.pod.namespace: argocd
+    toPorts:
+    - ports:
+      - port: "8080"
+        protocol: TCP  # ArgoCD server
+      - port: "8083"
+        protocol: TCP  # ArgoCD gRPC
+  egress:
+  - toEndpoints:
+    - matchLabels:
+        io.kubernetes.pod.namespace: argocd
+  - toEndpoints:
+    - matchLabels:
+        k8s-app: coredns
+    toPorts:
+    - ports:
+      - port: "53"
+        protocol: UDP
+  # ArgoCD needs to reach GitHub
+  - toFQDNs:
+    - matchName: "github.com"
+    - matchName: "*.githubusercontent.com"
+    toPorts:
+    - ports:
+      - port: "443"
+        protocol: TCP
+
+---
+# Cert-Manager Namespace Core Communication
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: allow-same-namespace
+  namespace: cert-manager
+  labels:
+    app.kubernetes.io/name: network-policies
+    app.kubernetes.io/component: core
+spec:
+  endpointSelector: {}
+  description: "Allow pod-to-pod communication within cert-manager namespace"
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - fromEndpoints:
+    - matchLabels:
+        io.kubernetes.pod.namespace: cert-manager
+    toPorts:
+    - ports:
+      - port: "6443"
+        protocol: TCP
+      - port: "8080"
+        protocol: TCP
+  egress:
+  - toEndpoints:
+    - matchLabels:
+        io.kubernetes.pod.namespace: cert-manager
+  - toEndpoints:
+    - matchLabels:
+        k8s-app: coredns
+    toPorts:
+    - ports:
+      - port: "53"
+        protocol: UDP
+  # cert-manager needs to reach Let's Encrypt
+  - toFQDNs:
+    - matchName: "acme-v02.api.letsencrypt.org"
+    toPorts:
+    - ports:
+      - port: "443"
+        protocol: TCP

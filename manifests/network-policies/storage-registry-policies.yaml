@@ -1,0 +1,324 @@
+---
+# Storage and Registry Network Policies
+# Longhorn (persistent volume management) and Harbor (container registry)
+
+# Longhorn Storage - Replication and Manager Communication
+# Namespace: longhorn-system
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: longhorn-allow-replication
+  namespace: longhorn-system
+  labels:
+    app.kubernetes.io/name: network-policies
+    app.kubernetes.io/component: storage
+spec:
+  endpointSelector:
+    matchLabels:
+      app: longhorn
+  description: "Allow Longhorn manager and engine communication for volume replication"
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Longhorn engine to engine communication
+  - fromEndpoints:
+    - matchLabels:
+        app: longhorn-engine
+    toPorts:
+    - ports:
+      - port: "9500"
+        protocol: TCP  # Engine API
+      - port: "9501"
+        protocol: TCP  # Volume replication
+  # Longhorn manager to engine
+  - fromEndpoints:
+    - matchLabels:
+        app: longhorn-manager
+    toPorts:
+    - ports:
+      - port: "9500"
+        protocol: TCP
+      - port: "8500"
+        protocol: TCP
+  # Local kubelet for volume attachment
+  - fromEndpoints:
+    - matchLabels:
+        component: kubelet
+    toPorts:
+    - ports:
+      - port: "9500"
+        protocol: TCP
+  egress:
+  # Longhorn to Longhorn (same namespace)
+  - toEndpoints:
+    - matchLabels:
+        app: longhorn
+    toPorts:
+    - ports:
+      - port: "9500"
+        protocol: TCP
+      - port: "9501"
+        protocol: TCP
+      - port: "8500"
+        protocol: TCP
+  # DNS resolution
+  - toEndpoints:
+    - matchLabels:
+        k8s-app: coredns
+    toPorts:
+    - ports:
+      - port: "53"
+        protocol: UDP
+
+---
+# Longhorn UI and API Access
+# Allow Longhorn dashboard access from monitoring/admin
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: longhorn-allow-ui-access
+  namespace: longhorn-system
+  labels:
+    app.kubernetes.io/name: network-policies
+    app.kubernetes.io/component: storage
+spec:
+  endpointSelector:
+    matchLabels:
+      app: longhorn-manager
+  description: "Allow access to Longhorn UI and API"
+  ingress:
+  # From monitoring namespace
+  - fromEndpoints:
+    - matchLabels:
+        io.kubernetes.pod.namespace: monitoring
+    toPorts:
+    - ports:
+      - port: "8080"
+        protocol: TCP  # UI/API
+  # From local dashboard access
+  - fromEntities:
+    - "host"
+    toPorts:
+    - ports:
+      - port: "8080"
+        protocol: TCP
+
+---
+# Harbor Container Registry - Core Communication
+# Namespace: harbor
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: harbor-allow-internal
+  namespace: harbor
+  labels:
+    app.kubernetes.io/name: network-policies
+    app.kubernetes.io/component: registry
+spec:
+  endpointSelector:
+    matchLabels:
+      app: harbor
+  description: "Allow Harbor internal service communication"
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Harbor to Harbor (internal communication)
+  - fromEndpoints:
+    - matchLabels:
+        app: harbor
+    toPorts:
+    - ports:
+      - port: "5000"
+        protocol: TCP  # Docker Registry V2
+      - port: "8080"
+        protocol: TCP  # Harbor Core/UI
+      - port: "8443"
+        protocol: TCP  # Harbor Core HTTPS
+  # Kubelet image pulls
+  - fromEndpoints:
+    - matchLabels:
+        component: kubelet
+    toPorts:
+    - ports:
+      - port: "5000"
+        protocol: TCP
+  # From local host
+  - fromEntities:
+    - "host"
+    toPorts:
+    - ports:
+      - port: "5000"
+        protocol: TCP
+      - port: "8080"
+        protocol: TCP
+  egress:
+  # Harbor to Harbor (internal)
+  - toEndpoints:
+    - matchLabels:
+        app: harbor
+    toPorts:
+    - ports:
+      - port: "5000"
+        protocol: TCP
+      - port: "8080"
+        protocol: TCP
+      - port: "8443"
+        protocol: TCP
+  # DNS resolution
+  - toEndpoints:
+    - matchLabels:
+        k8s-app: coredns
+    toPorts:
+    - ports:
+      - port: "53"
+        protocol: UDP
+
+---
+# Harbor External Registry Access
+# Allow Harbor to pull images from external registries
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: harbor-allow-external-registry
+  namespace: harbor
+  labels:
+    app.kubernetes.io/name: network-policies
+    app.kubernetes.io/component: registry
+spec:
+  endpointSelector:
+    matchLabels:
+      app: harbor-core
+  description: "Allow Harbor to pull images from external registries"
+  egress:
+  # Docker Hub
+  - toFQDNs:
+    - matchName: "docker.io"
+    - matchName: "registry-1.docker.io"
+    - matchName: "auth.docker.io"
+    - matchName: "*.docker.io"
+    toPorts:
+    - ports:
+      - port: "443"
+        protocol: TCP
+  # GitHub Container Registry
+  - toFQDNs:
+    - matchName: "ghcr.io"
+    - matchName: "*.githubusercontent.com"
+    toPorts:
+    - ports:
+      - port: "443"
+        protocol: TCP
+  # Quay.io
+  - toFQDNs:
+    - matchName: "quay.io"
+    toPorts:
+    - ports:
+      - port: "443"
+        protocol: TCP
+  # AWS ECR
+  - toFQDNs:
+    - matchName: "*.dkr.ecr.*.amazonaws.com"
+    toPorts:
+    - ports:
+      - port: "443"
+        protocol: TCP
+  # Azure ACR
+  - toFQDNs:
+    - matchName: "*.azurecr.io"
+    toPorts:
+    - ports:
+      - port: "443"
+        protocol: TCP
+
+---
+# Harbor UI/API Access
+# Allow dashboard and monitoring access
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: harbor-allow-ui-access
+  namespace: harbor
+  labels:
+    app.kubernetes.io/name: network-policies
+    app.kubernetes.io/component: registry
+spec:
+  endpointSelector:
+    matchLabels:
+      app: harbor-core
+  description: "Allow Harbor UI/API access from monitoring and admin"
+  ingress:
+  # From monitoring namespace (Prometheus scraping)
+  - fromEndpoints:
+    - matchLabels:
+        io.kubernetes.pod.namespace: monitoring
+    toPorts:
+    - ports:
+      - port: "8080"
+        protocol: TCP
+  # From argocd namespace
+  - fromEndpoints:
+    - matchLabels:
+        io.kubernetes.pod.namespace: argocd
+    toPorts:
+    - ports:
+      - port: "8080"
+        protocol: TCP
+  # From local dashboard access
+  - fromEntities:
+    - "host"
+    toPorts:
+    - ports:
+      - port: "8080"
+        protocol: TCP
+      - port: "8443"
+        protocol: TCP
+
+---
+# Velero Backup - Storage Access
+# Namespace: velero
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: velero-allow-storage-access
+  namespace: velero
+  labels:
+    app.kubernetes.io/name: network-policies
+    app.kubernetes.io/component: backup
+spec:
+  endpointSelector:
+    matchLabels:
+      app: velero
+  description: "Allow Velero to access storage for backups"
+  policyTypes:
+  - Ingress
+  - Egress
+  egress:
+  # To all namespaces (reading resources for backup)
+  - toEndpoints:
+    - matchLabels: {}
+    toPorts:
+    - ports:
+      - port: "443"
+        protocol: TCP
+      - port: "6443"
+        protocol: TCP  # Kubernetes API
+  # DNS resolution
+  - toEndpoints:
+    - matchLabels:
+        k8s-app: coredns
+    toPorts:
+    - ports:
+      - port: "53"
+        protocol: UDP
+  # External storage (S3, GCS, Azure, etc.)
+  - toFQDNs:
+    - matchName: "s3.amazonaws.com"
+    - matchName: "*.s3.amazonaws.com"
+    - matchName: "storage.googleapis.com"
+    - matchName: "*.blob.core.windows.net"
+    toPorts:
+    - ports:
+      - port: "443"
+        protocol: TCP

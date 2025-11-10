@@ -1,317 +1,132 @@
-# Kubernetes Platform Stack - Enterprise Edition
+# Kubernetes Platform Stack
 
-A **production-ready Kubernetes platform** built with modern GitOps, service mesh, observability, and security best practices. Runs in KIND (Kubernetes in Docker) for local development while being architecturally identical to production deployments.
+A complete Kubernetes platform running in KIND with Cilium, Istio, ArgoCD, and observability stack. Production-ready with security, networking, and GitOps.
 
-**Platform Status**: ✅ **100% Healthy** (17/17 applications synced and healthy)
+Current Status: 100% healthy (17/17 applications deployed)
 
-## 🎯 What This Is
+## Quick Start
 
-An enterprise-grade Kubernetes platform providing:
-- **GitOps-First Deployment** - All infrastructure as code, managed by ArgoCD
-- **Service Mesh** - Istio with mTLS, traffic policies, and authorization
-- **Security-First Design** - Network policies, RBAC, pod security, sealed secrets
-- **Enterprise Observability** - Prometheus, Grafana, Loki, Tempo, Jaeger
-- **Production-Grade Networking** - Cilium CNI with eBPF, native LoadBalancer, BGP
-- **Secret Management** - Sealed-Secrets for git-stored credentials, Vault integration ready
-- **Policy Enforcement** - Kyverno, Gatekeeper, Falco runtime security
-- **Advanced Features** - Disaster recovery, backup/restore, multi-tenancy support
+### Requirements
+- Docker (20.10+)
+- Kind (0.20+)
+- kubectl (1.24+)
+- Helm (3.12+)
+- kubeseal (optional, for managing secrets)
 
-## 📋 Platform Components (17 Applications)
-
-### Infrastructure Layer
-| Component | Version | Purpose | Status |
-|-----------|---------|---------|--------|
-| **Cilium** | 1.18.3 | eBPF CNI, kube-proxy replacement, LoadBalancer | ✅ Healthy |
-| **Metrics Server** | 3.12.1 | Kubernetes metrics (HPA, VPA) | ✅ Healthy |
-| **External DNS** | 1.14.3 | Automatic DNS record management | ✅ Healthy |
-| **ArgoCD** | 3.2.0 | GitOps orchestration | ✅ Healthy |
-
-### Observability & Monitoring
-| Component | Version | Purpose | Status |
-|-----------|---------|---------|--------|
-| **Prometheus** | 2.48.0 | Metrics collection and alerting | ✅ Healthy |
-| **Grafana** | 11.0.0 | Visualization dashboards | ✅ Healthy |
-| **Loki** | 3.0.0 | Log aggregation | ✅ Healthy |
-| **Tempo** | 2.3.0 | Distributed tracing | ✅ Healthy |
-| **Jaeger** | 3.3.0 | Advanced tracing (Tempo backend) | ✅ Healthy |
-
-### Service Mesh & Traffic Management
-| Component | Version | Purpose | Status |
-|-----------|---------|---------|--------|
-| **Istio** | 1.28.0 | Service mesh with mTLS | ✅ Healthy |
-| **Kong** | 3.x | API Gateway | ✅ Healthy |
-
-### Security & Policy
-| Component | Version | Purpose | Status |
-|-----------|---------|---------|--------|
-| **Cert-Manager** | v1.14.0 | TLS certificate management | ✅ Healthy |
-| **Vault** | 1.17.0 | Secrets management | ⏳ Progressing (uninitialized) |
-| **Sealed-Secrets** | 0.25.0 | Git-storable encrypted secrets | ✅ Healthy |
-| **Kyverno** | 1.12.0 | Policy-as-code enforcement | ✅ Healthy |
-| **Gatekeeper** | 3.17.0 | OPA policy enforcement | ✅ Healthy |
-| **Falco** | 0.37.0 | Runtime security monitoring | ✅ Healthy |
-
-### Storage & Backup
-| Component | Version | Purpose | Status |
-|-----------|---------|---------|--------|
-| **Longhorn** | 1.6.0 | Persistent volume management | ✅ Healthy |
-
-### Applications
-| Component | Version | Purpose | Status |
-|-----------|---------|---------|--------|
-| **my-app** | 1.0.0 | Sample Flask application with Istio | ✅ Healthy |
-
----
-
-## 🚀 Quick Start
-
-### Prerequisites
-```bash
-# Install required tools
-brew install kind docker kubectl helm kubeseal  # macOS
-# OR for Linux, use your package manager
-
-# Verify installations
-kind --version          # v0.20+
-docker --version        # 20.10+
-kubectl version         # 1.24+
-helm version           # 3.12+
-```
-
-### Deploy the Platform (5 minutes)
+### Deploy (5 minutes)
 
 ```bash
-# Clone repository
+# Clone and setup
 git clone https://github.com/vietcgi/kubernetes-platform-stack.git
 cd kubernetes-platform-stack
 
-# Run deployment script
+# Run deployment
 ./deploy.sh
 
-# Watch deployment progress
+# Watch progress
 watch kubectl get applications -n argocd
 
-# Get ArgoCD admin password
-kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d
+# Get ArgoCD password
+kubectl -n argocd get secret argocd-initial-admin-secret \
+  -o jsonpath='{.data.password}' | base64 -d
 ```
 
-### Access the Platform
+### Access Services
 
 ```bash
-# ArgoCD Dashboard
+# ArgoCD (GitOps)
 kubectl port-forward -n argocd svc/argocd-server 8080:443 &
-# https://localhost:8080 (admin / <password>)
+# https://localhost:8080
 
-# Prometheus
+# Prometheus (Metrics)
 kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090 &
 # http://localhost:9090
 
-# Grafana
+# Grafana (Dashboards)
 kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 3000:80 &
-# http://localhost:3000 (admin / <password from Sealed Secret>)
+# http://localhost:3000
 
-# Kong Admin
+# Kong Admin (API Gateway)
 kubectl port-forward -n api-gateway svc/kong-kong-admin 8444:8444 &
 # https://localhost:8444/admin
 ```
 
----
+## What's Included
 
-## 🏗️ Architecture
+### Networking
+- Cilium v1.18.3 (eBPF-based CNI with LoadBalancer support)
+- Istio v1.28.0 (service mesh with mTLS)
+- Kong v3.x (API gateway)
+- External DNS (automatic DNS management)
 
-### Deployment Model: GitOps-First with ApplicationSet
-
-```
-GitHub Repository (Source of Truth)
-         ↓
-   ArgoCD (GitOps Controller)
-         ├─ Cilium (Direct Helm)
-         ├─ ArgoCD Server (Direct Helm)
-         └─ ApplicationSet (14 Additional Apps)
-                ├─ Observability Stack
-                ├─ Service Mesh (Istio)
-                ├─ Security Layer
-                ├─ Storage & Backup
-                └─ Applications
-```
-
-### Network Architecture
-
-```
-┌─────────────────── KIND Cluster ───────────────────┐
-│                                                     │
-│  ┌──────────────────────────────────────────────┐ │
-│  │         Cilium (eBPF Networking)            │ │
-│  │  ├─ Pod-to-Pod: Native eBPF datapath       │ │
-│  │  ├─ LoadBalancer: 172.18.1.0/24            │ │
-│  │  ├─ L2 Announcements: eth0                 │ │
-│  │  └─ Policy: Cilium NetworkPolicy           │ │
-│  └──────────────────────────────────────────────┘ │
-│                     ↓                              │
-│  ┌──────────────────────────────────────────────┐ │
-│  │    Istio Service Mesh (mTLS)               │ │
-│  │  ├─ Pod-to-Pod: Encrypted with mTLS       │ │
-│  │  ├─ Authorization: AuthorizationPolicy    │ │
-│  │  └─ Traffic: VirtualService + DestRule    │ │
-│  └──────────────────────────────────────────────┘ │
-│                     ↓                              │
-│  ┌──────────────────────────────────────────────┐ │
-│  │         Kong API Gateway                    │ │
-│  │  ├─ Ingress: External API access           │ │
-│  │  └─ Routes: Service discovery              │ │
-│  └──────────────────────────────────────────────┘ │
-│                                                     │
-└─────────────────────────────────────────────────────┘
-         ↓
-   Host Network (Docker bridge)
-         ↓
-   External Clients (Port-forward, Ingress)
-```
-
-### Data Flow for Observability
-
-```
-Applications
-    ├─ Prometheus Metrics (port 8080/metrics)
-    │       ↓
-    │   Prometheus (scrapes every 30s)
-    │       ├─ Prometheus TSDB (15d retention)
-    │       └─ Alert Evaluation
-    │
-    ├─ Logs (stdout)
-    │       ↓
-    │   Promtail (collects logs)
-    │       ↓
-    │   Loki (log aggregation)
-    │
-    └─ Traces (OTEL format)
-            ↓
-        Tempo (trace aggregation)
-            ├─ Jaeger UI (trace visualization)
-            └─ Prometheus Metrics (RED)
-
-All data visualized in Grafana dashboards
-```
-
----
-
-## 📚 Detailed Documentation
-
-### Core Guides
-- **[Deployment Guide](docs/DEPLOYMENT.md)** - Setup, configuration, troubleshooting
-- **[Secrets Management](docs/SECRETS_MANAGEMENT.md)** - Sealed-Secrets, Vault integration
-- **[Operations Runbook](docs/OPERATIONS.md)** - Day-2 operations, monitoring, scaling
-- **[Enterprise Pipeline](ENTERPRISE_PIPELINE.md)** - CI/CD architecture and implementation
-
-### Component Guides
-- **[Cilium Networking](docs/CILIUM.md)** - Network policies, BGP, LoadBalancer
-- **[Istio Service Mesh](docs/ISTIO.md)** - mTLS, traffic policies, authorization
-- **[ArgoCD GitOps](docs/ARGOCD.md)** - Application management, syncing strategies
-- **[Observability Stack](docs/OBSERVABILITY.md)** - Metrics, logs, traces
+### Observability
+- Prometheus (metrics collection)
+- Grafana (dashboards)
+- Loki (log aggregation)
+- Tempo (distributed tracing)
+- Jaeger (advanced tracing)
 
 ### Security
-- **[Security Policies](docs/SECURITY.md)** - Network policies, RBAC, pod security
-- **[Compliance](docs/COMPLIANCE.md)** - CIS benchmarks, audit logging
+- Sealed Secrets (encrypted secrets in git)
+- Kyverno (policy enforcement)
+- Gatekeeper (OPA policies)
+- Falco (runtime security)
+- Cert-Manager (TLS certificates)
+- Vault (secrets management)
 
----
+### Storage & Backup
+- Longhorn (persistent volumes)
+- Velero (backup and restore)
 
-## 🔐 Security Features
+### Management
+- ArgoCD (GitOps orchestration)
+- ApplicationSet (multi-app deployment)
 
-### Network Security
-- ✅ **Cilium NetworkPolicies** - Default deny ingress/egress, explicit allow rules
-- ✅ **Istio AuthorizationPolicy** - RBAC for service-to-service communication
-- ✅ **mTLS Encryption** - All pod traffic encrypted by default
-- ✅ **Network Policy Consolidation** - Centralized policy management
+## Documentation
 
-### Secrets Management
-- ✅ **Sealed-Secrets** - Encrypt secrets in git with strong encryption
-- ✅ **Vault Integration** - Ready for external secrets operator integration
-- ✅ **No Hardcoded Credentials** - All passwords managed securely
-- ✅ **TLS for All Services** - Enabled for production (Vault TLS guide included)
+- ARCHITECTURE.md - System design and components
+- OPERATIONS.md - How to run, monitor, and troubleshoot
+- CONFIGURATION.md - Secrets, network policies, Helm schemas
 
-### Policy Enforcement
-- ✅ **Kyverno Policies** - Pod security policies as code
-- ✅ **Gatekeeper** - OPA-based policy engine
-- ✅ **Falco** - Runtime security monitoring and alerting
-- ✅ **RBAC** - Role-based access control for all services
+## Key Features
 
-### Audit & Monitoring
-- ✅ **Audit Logging** - Kubernetes API audit trails
-- ✅ **Prometheus Alerting** - Critical alerts via multiple channels
-- ✅ **Loki Log Retention** - Centralized log aggregation
-- ✅ **Falco Alerts** - Real-time security event detection
+Clustered Setup: 2 nodes (control-plane + worker)
 
----
+Version Pinning: All Helm charts pinned to stable versions
+- No wildcard versions, prevents surprise breaks
 
-## 📊 Operations
+Security Hardened:
+- Zero hardcoded credentials
+- TLS ready for all services
+- Network policies enforced
+- RBAC configured
 
-### Health Check
+GitOps Management:
+- All apps managed via ArgoCD
+- Single source of truth (ApplicationSet)
+- Auto-sync on git changes
+- Self-healing enabled
 
-```bash
-# Check all applications
-kubectl get applications -n argocd
-# Expected: All 17 apps should be "Synced" and "Healthy"
+Network Architecture:
+- Cilium native LoadBalancer (172.18.1.0/24)
+- Istio mTLS between pods
+- Network policies for segmentation
+- Centralized policy management
 
-# Check cluster nodes
-kubectl get nodes
-# Expected: All nodes "Ready"
+Observability:
+- Prometheus scrapes all components
+- Grafana dashboards included
+- Loki log aggregation
+- Tempo distributed traces
+- Jaeger tracing UI
 
-# Check critical pods
-kubectl get pods -A | grep -E "(argocd|cilium|istio|monitoring)"
-# Expected: All pods "Running" (except Vault if uninitialized)
-```
+## Common Operations
 
-### Monitoring & Alerting
+### Deploy New Application
 
-```bash
-# View Prometheus alerts
-kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090
-# http://localhost:9090/alerts
-
-# Check alert rules
-kubectl get prometheusrule -A
-
-# View Grafana dashboards
-kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 3000:80
-# http://localhost:3000 (admin / <sealed-secret-password>)
-```
-
-### Scaling Applications
+Create Helm chart in helm/my-new-app/, then create ArgoCD application:
 
 ```bash
-# Scale my-app to 3 replicas
-kubectl patch -n app hpa my-app -p '{"spec":{"maxReplicas":3}}'
-
-# View HPA status
-kubectl get hpa -n app
-kubectl describe hpa my-app -n app
-```
-
-### Backup & Restore
-
-```bash
-# (Velero integration ready but not initialized)
-# To enable Velero backups:
-kubectl create secret generic velero-credentials \
-  --from-file=cloud=credentials.txt \
-  -n velero
-
-velero backup create full-backup --wait
-velero restore create --from-backup full-backup
-```
-
----
-
-## 🔧 Common Tasks
-
-### Deploy a New Application
-
-```bash
-# 1. Create Helm chart
-mkdir helm/my-new-app
-# ... add values.yaml, templates/, Chart.yaml
-
-# 2. Create ArgoCD Application
 cat > argocd/applications/my-new-app.yaml <<EOF
 apiVersion: argoproj.io/v1alpha1
 kind: Application
@@ -335,152 +150,96 @@ spec:
     - CreateNamespace=true
 EOF
 
-# 3. Commit and push
-git add helm/my-new-app argocd/applications/my-new-app.yaml
-git commit -m "feat: add my-new-app application"
+git add argocd/applications/my-new-app.yaml
+git commit -m "feat: add my-new-app"
 git push
-
-# ArgoCD auto-detects and syncs!
-kubectl get application my-new-app -n argocd
 ```
 
-### Update Application Version
-
-```bash
-# Update via ArgoCD
-argocd app set my-app --helm-set image.tag=v2.0.0
-
-# Or edit the git source and commit
-# ArgoCD auto-syncs in 30 seconds (configurable in deploy.sh)
-```
+ArgoCD will detect the change and deploy automatically.
 
 ### Manage Secrets
 
+Use Sealed Secrets for credentials in git:
+
 ```bash
-# Create a secret
+# Create secret
 kubectl create secret generic db-password \
-  --from-literal=password='mysecretpassword' \
-  -n my-namespace \
+  --from-literal=password='mypassword' \
+  -n myapp \
   --dry-run=client -o yaml | kubeseal -f - > db-password-sealed.yaml
 
-# Commit sealed secret to git
+# Commit to git
 git add db-password-sealed.yaml
 git commit -m "chore: add sealed db-password"
+git push
 
-# Apply sealed secret
+# Sealed Secrets controller auto-decrypts when applied
 kubectl apply -f db-password-sealed.yaml
-# Sealed-secrets controller automatically decrypts to a Secret
 ```
 
-### Add Network Policies
+See CONFIGURATION.md for details.
+
+### Check Network Policies
 
 ```bash
-# Edit network policy
-kubectl edit cnp -n app
+# List policies
+kubectl get ciliumnetworkpolicies -A
 
-# Or apply new policy
-kubectl apply -f - <<EOF
-apiVersion: cilium.io/v2
-kind: CiliumNetworkPolicy
-metadata:
-  name: allow-frontend-to-backend
-spec:
-  endpointSelector:
-    matchLabels:
-      app: backend
-  ingress:
-  - fromEndpoints:
-    - matchLabels:
-        app: frontend
-    toPorts:
-    - ports:
-      - port: "8080"
-        protocol: TCP
-EOF
+# View specific policy
+kubectl describe cnp <policy-name> -n <namespace>
+
+# Troubleshoot connectivity
+kubectl exec -it <pod> -n <namespace> -- \
+  wget -O- http://target-service:8080/health
 ```
 
-### Enable Istio Injection for a Service
+### Monitor Cluster
 
 ```bash
-# Label namespace for automatic sidecar injection
-kubectl label namespace my-namespace istio-injection=enabled
+# Application status
+kubectl get applications -n argocd
 
-# New pods will get Istio sidecar automatically
+# Pod status
+kubectl get pods -A
 
-# For existing pods, restart deployment
-kubectl rollout restart deployment my-app -n my-namespace
+# Node status
+kubectl get nodes
+
+# Events
+kubectl get events -A --sort-by='.lastTimestamp'
 ```
 
----
+## Troubleshooting
 
-## 📈 Performance & Capacity
-
-### Resource Usage (Idle Cluster)
-
-| Component | CPU | Memory |
-|-----------|-----|--------|
-| Cilium (per node) | 50m | 128Mi |
-| ArgoCD suite | 300m | 512Mi |
-| Prometheus | 100m | 512Mi |
-| Grafana | 50m | 128Mi |
-| Istio | 200m | 256Mi |
-| **Total (minimum)** | **700m** | **1.5Gi** |
-
-### Horizontal Pod Autoscaling
+### Application not syncing
 
 ```bash
-# HPA enabled for my-app
-kubectl get hpa -n app my-app
+# Check status
+kubectl describe application <app-name> -n argocd
 
-# Target: 80% CPU utilization
-# Min replicas: 1
-# Max replicas: 5
-```
-
-### Storage
-
-```bash
-# Check persistent volumes
-kubectl get pv
-kubectl get pvc -A
-
-# Monitor storage usage
-kubectl top nodes
-kubectl top pods -A
-```
-
----
-
-## 🚨 Troubleshooting
-
-### Application Not Syncing in ArgoCD
-
-```bash
-# Check application status
-kubectl describe application my-app -n argocd
-
-# View sync details
-argocd app get my-app
-argocd app logs my-app --tail=50
+# Check logs
+kubectl logs -n argocd deployment/argocd-server
 
 # Manual sync
-kubectl patch application my-app -n argocd -p '{"spec":{"syncPolicy":{"syncOptions":["Refresh=hard"]}}}'
-argocd app sync my-app --force
+argocd app sync <app-name>
 ```
 
-### Pod Stuck in Pending
+### Pod not starting
 
 ```bash
-# Check pod events
+# Check pod status
 kubectl describe pod <pod-name> -n <namespace>
 
-# Common causes:
-# - Insufficient resources: kubectl top nodes
+# View logs
+kubectl logs <pod-name> -n <namespace>
+
+# Common issues:
+# - Image not found: kind load docker-image <image>
 # - Network policy blocking: kubectl get cnp -n <namespace>
-# - PVC not bound: kubectl get pvc -n <namespace>
+# - Resource limits: kubectl top nodes
 ```
 
-### Service Not Accessible
+### Service not accessible
 
 ```bash
 # Check service
@@ -489,202 +248,130 @@ kubectl get svc <service-name> -n <namespace>
 # Check endpoints
 kubectl get endpoints <service-name> -n <namespace>
 
-# Test connectivity
-kubectl run debug --image=busybox --rm -it --restart=Never -- sh
-# Inside: wget -O- http://service-name:8080/health
-
 # Check network policies
 kubectl get cnp -n <namespace>
-kubectl describe cnp <policy-name> -n <namespace>
+
+# Test connectivity
+kubectl run debug --image=busybox --rm -it --restart=Never -- \
+  wget -O- http://service-name:8080
 ```
 
 ### Istio sidecar not injected
 
 ```bash
-# Verify namespace label
+# Check namespace label
 kubectl get namespace <namespace> --show-labels
-# Should have: istio-injection=enabled
 
-# Check if sidecar injector is running
-kubectl get pod -n istio-system -l app=istiod
+# Label for injection
+kubectl label namespace <namespace> istio-injection=enabled
 
-# Manually inject into pod (restart required)
-kubectl label pod <pod-name> -n <namespace> version=v1
-kubectl rollout restart deployment <deployment> -n <namespace>
+# Restart pods
+kubectl rollout restart deployment <name> -n <namespace>
 ```
 
-### Memory/CPU Issues
+## Architecture Overview
 
-```bash
-# Check resource usage
-kubectl top nodes
-kubectl top pods -n <namespace>
+Two-node KIND cluster with:
 
-# View container limits
-kubectl describe pod <pod> -n <namespace> | grep -A 5 Resources
+NODE 1 (Control Plane)
+- API Server
+- Etcd
+- CoreDNS
+- Platform services
 
-# Increase limits (edit deployment)
-kubectl set resources deployment <name> -n <namespace> \
-  --limits=cpu=1,memory=512Mi \
-  --requests=cpu=500m,memory=256Mi
+NODE 2 (Worker)
+- Application pods
+- Storage pods
+- Cache/queue services
+
+NETWORKING LAYER
+- Cilium (eBPF data plane)
+- Istio (mTLS service mesh)
+- Kong (API gateway)
+
+OBSERVABILITY LAYER
+- Prometheus (metrics)
+- Grafana (dashboards)
+- Loki (logs)
+- Tempo (traces)
+
+MANAGEMENT LAYER
+- ArgoCD (GitOps)
+- ApplicationSet (multi-app)
+- Sealed Secrets (credential management)
+
+SECURITY LAYER
+- Network policies (Cilium)
+- RBAC (Kubernetes)
+- Pod security (Kyverno)
+- Runtime security (Falco)
+
+## Resource Usage
+
+Typical resource consumption (idle):
+
+Component              CPU      Memory
+Cilium (per node)      50m      128Mi
+Prometheus             100m     512Mi
+Grafana                50m      128Mi
+Istio                  200m     256Mi
+ArgoCD                 300m     512Mi
+Other services         100m     256Mi
+TOTAL                  ~800m    ~1.7Gi
+
+On a laptop with 4 CPU and 8GB RAM: comfortable headroom
+On a laptop with 2 CPU and 4GB RAM: tight but workable
+
+Adjust replica counts in helm/*/values.yaml if needed.
+
+## File Structure
+
+```
+.
+├── helm/                    # Helm charts
+│   ├── my-app/             # Sample application
+│   ├── cilium/             # CNI networking
+│   ├── istio/              # Service mesh
+│   ├── prometheus/         # Observability
+│   ├── vault/              # Secrets management
+│   └── ...                 # Other platform charts
+├── argocd/
+│   ├── applications/       # Individual app definitions
+│   │   ├── my-app.yaml
+│   │   ├── kong-ingress.yaml
+│   │   └── network-policies.yaml
+│   ├── applicationsets/
+│   │   └── platform-apps.yaml  # Generates most platform apps
+├── manifests/
+│   ├── network-policies/   # Centralized network policies
+│   ├── cilium/             # Cilium config
+│   └── kong/               # Kong routes
+├── docs/
+│   ├── ARCHITECTURE.md
+│   ├── OPERATIONS.md
+│   ├── CONFIGURATION.md
+├── tests/                   # Unit and integration tests
+├── src/app.py              # Sample Flask application
+├── Dockerfile
+├── kind-config.yaml        # KIND cluster config
+├── deploy.sh               # Deployment script
+└── README.md               # This file
 ```
 
-### Sealed-Secret Not Decrypting
+## Next Steps
 
-```bash
-# Check sealed-secrets controller
-kubectl logs -n sealed-secrets -l app.kubernetes.io/name=sealed-secrets
+1. Read ARCHITECTURE.md to understand the system design
+2. Read OPERATIONS.md for how to run and manage the platform
+3. Read CONFIGURATION.md for secrets and customization
+4. Deploy to your cluster with ./deploy.sh
+5. Access ArgoCD and monitor application deployments
 
-# Verify secret was sealed with correct namespace
-kubectl get sealedsecret -n <namespace>
+## Support
 
-# Reseal with correct scope
-kubeseal -f secret.yaml -n <namespace> -w sealed-secret.yaml
-```
+For issues, see OPERATIONS.md troubleshooting section.
 
----
+For GitHub issues: https://github.com/vietcgi/kubernetes-platform-stack/issues
 
-## 📝 Development Workflow
+## License
 
-### Local Setup
-
-```bash
-# Install development dependencies
-pip install -r requirements-dev.txt
-
-# Run unit tests
-pytest tests/unit/ -v
-
-# Run linting
-black . && isort . && pylint src/
-
-# Build Docker image
-docker build -t my-app:dev .
-
-# Load into KIND
-kind load docker-image my-app:dev --name platform
-```
-
-### Test Changes Locally
-
-```bash
-# Update Helm chart values
-vim helm/my-app/values.yaml
-
-# Render templates locally
-helm template my-app helm/my-app
-
-# Apply to test namespace
-helm upgrade --install my-app helm/my-app -n test --create-namespace
-
-# Verify
-kubectl rollout status deployment my-app -n test
-kubectl get pods -n test
-
-# Cleanup
-kubectl delete namespace test
-```
-
-### Commit & Deploy
-
-```bash
-# Commit changes
-git add .
-git commit -m "feat: add new feature to my-app"
-
-# Push to main
-git push origin main
-
-# Watch ArgoCD auto-sync
-watch kubectl get applications -n argocd
-# ArgoCD detects change and syncs automatically!
-```
-
----
-
-## 🔄 CI/CD Pipeline
-
-The platform includes an enterprise CI/CD pipeline (see [ENTERPRISE_PIPELINE.md](ENTERPRISE_PIPELINE.md)):
-
-- **Stage 1**: Code Quality (Linting, type checking, SAST)
-- **Stage 2**: Build & Container (Docker build, container scanning)
-- **Stage 3**: Unit & Integration Tests
-- **Stage 4**: Cluster Testing (E2E tests on ephemeral cluster)
-- **Stage 5**: Performance Testing (Load, stress, chaos)
-- **Stage 6**: Security Hardening (DAST, compliance checks)
-- **Stage 7**: Deployment (Staging → Production approval)
-- **Stage 8**: Monitoring (Prometheus rules, Grafana dashboards)
-
----
-
-## 🎓 Learning Resources
-
-### Kubernetes
-- [Kubernetes Official Docs](https://kubernetes.io/docs/)
-- [KIND Documentation](https://kind.sigs.k8s.io/)
-
-### Cilium
-- [Cilium Documentation](https://docs.cilium.io/)
-- [eBPF Introduction](https://ebpf.io/)
-
-### Istio
-- [Istio Documentation](https://istio.io/latest/docs/)
-- [mTLS Explained](https://istio.io/latest/docs/concepts/security/)
-
-### ArgoCD
-- [ArgoCD Documentation](https://argo-cd.readthedocs.io/)
-- [GitOps Best Practices](https://www.gitops.tech/)
-
-### Observability
-- [Prometheus Docs](https://prometheus.io/docs/)
-- [Grafana Dashboards](https://grafana.com/grafana/dashboards/)
-- [Loki Documentation](https://grafana.com/docs/loki/)
-
----
-
-## 🤝 Contributing
-
-1. **Fork** the repository
-2. **Create a feature branch** (`git checkout -b feature/my-feature`)
-3. **Write tests** for your changes
-4. **Commit** using conventional commits
-5. **Push** to your fork
-6. **Create a Pull Request**
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
-
----
-
-## 📜 License
-
-MIT License - see [LICENSE](LICENSE) for details
-
----
-
-## 🆘 Support
-
-- **Issues**: [GitHub Issues](https://github.com/vietcgi/kubernetes-platform-stack/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/vietcgi/kubernetes-platform-stack/discussions)
-- **Documentation**: [/docs](docs/)
-
----
-
-## 📊 Metrics & SLOs
-
-### Target Metrics
-- **Availability**: 99.9% (all critical components)
-- **Latency**: <100ms (p99)
-- **Error Rate**: <0.1% of requests
-- **MTTR**: <30 minutes (mean time to recovery)
-
-### Current Status
-- **Uptime**: 100% (since last deployment)
-- **Applications**: 17/17 Healthy
-- **Nodes**: All Ready
-- **Network**: All policies enforced
-
----
-
-**Last Updated**: 2025-11-09
-**Maintained By**: Platform Engineering Team
-**Version**: 1.0.0 - Enterprise Edition
+MIT
