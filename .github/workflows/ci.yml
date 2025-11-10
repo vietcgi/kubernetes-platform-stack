@@ -62,7 +62,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: helm/kind-action@v1.7.0
         with:
-          config: kind-config.yaml
+          config: kind-config-ci.yaml
       - uses: azure/setup-helm@v3
       - run: chmod +x deploy.sh && ./deploy.sh --force || true
       - run: sleep 30 && kubectl get deployments -A || true

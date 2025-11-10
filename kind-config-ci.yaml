@@ -19,13 +19,6 @@ nodes:
     ingress-ready: "true"
 - role: worker
   image: kindest/node:v1.34.0
-  extraPortMappings:
-  - containerPort: 8000
-    hostPort: 80
-    protocol: TCP
-  - containerPort: 8443
-    hostPort: 443
-    protocol: TCP
   labels:
     bgp: enabled
     ingress-ready: "true"
