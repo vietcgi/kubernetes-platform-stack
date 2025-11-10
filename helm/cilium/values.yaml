@@ -21,7 +21,9 @@ bgp:
 # BGP Configuration (peer settings)
 bgpControlPlane:
   enabled: true
-  secretsNamespace: kube-system
+  secretsNamespace:
+    create: false
+    name: kube-system
 
 # Native LoadBalancer service support
 # Use L2 for KIND, BGP for production
@@ -74,7 +76,9 @@ prometheus:
   enabled: true
   port: 9090
   serviceMonitor:
-    enabled: true
+    # Disabled initially - Prometheus Operator CRDs not installed yet
+    # Will be enabled after Prometheus Operator is deployed via ArgoCD
+    enabled: false
     namespace: monitoring
     interval: 30s
 

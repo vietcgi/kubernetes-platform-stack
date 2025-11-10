@@ -176,31 +176,34 @@ fi
 
 sleep 5
 
+# Step 5c: Set Cilium version
+CILIUM_VERSION="1.18.3"
+CILIUM_IMAGE="quay.io/cilium/cilium:v${CILIUM_VERSION}"
+
+# Note: Image preloading disabled due to multi-platform manifest issues with kind load
+# The cluster will pull the image directly during Cilium deployment
+log_info "Using Cilium image: $CILIUM_IMAGE (will be pulled by cluster nodes)"
+
 # Step 6: Install Cilium CNI with BGP and kube-proxy replacement
-log_info "Installing Cilium CNI (v1.18.3) with BGP and kube-proxy replacement..."
+log_info "Installing Cilium CNI (v${CILIUM_VERSION}) with BGP and kube-proxy replacement..."
 CONTROL_PLANE_NODE="${CLUSTER_NAME}-control-plane"
-if helm list -n kube-system 2>/dev/null | grep -q "cilium"; then
-    log_info "Cilium already installed. Upgrading if needed..."
-    helm upgrade cilium cilium/cilium \
-      --namespace kube-system \
-      --set kubeProxyReplacement=true \
-      --set k8sServiceHost="$CONTROL_PLANE_NODE" \
-      --set k8sServicePort=6443 \
-      --set hubble.enabled=true \
-      --set hubble.relay.enabled=true \
-      --set hubble.ui.enabled=true \
-      --values "$SCRIPT_DIR/helm/cilium/values.yaml" 2>&1 | tail -5
-else
-    helm install cilium cilium/cilium \
-      --namespace kube-system \
-      --set kubeProxyReplacement=true \
-      --set k8sServiceHost="$CONTROL_PLANE_NODE" \
-      --set k8sServicePort=6443 \
-      --set hubble.enabled=true \
-      --set hubble.relay.enabled=true \
-      --set hubble.ui.enabled=true \
-      --values "$SCRIPT_DIR/helm/cilium/values.yaml" 2>&1 | tail -5
-fi
+
+# Get control plane IP address to avoid DNS chicken-and-egg problem
+# (Cilium needs DNS but CoreDNS needs Cilium to be running)
+log_info "Detecting control plane IP address..."
+CONTROL_PLANE_IP=$(kubectl get node "$CONTROL_PLANE_NODE" -o jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}')
+log_info "Control plane IP: $CONTROL_PLANE_IP"
+
+helm upgrade --install cilium cilium/cilium \
+  --version "$CILIUM_VERSION" \
+  --namespace kube-system \
+  --set kubeProxyReplacement=true \
+  --set k8sServiceHost="$CONTROL_PLANE_IP" \
+  --set k8sServicePort=6443 \
+  --set hubble.enabled=true \
+  --set hubble.relay.enabled=true \
+  --set hubble.ui.enabled=true \
+  --values "$SCRIPT_DIR/helm/cilium/values.yaml" 2>&1 | tail -5
 
 log_info "Waiting for Cilium to be ready (this may take 5-10 minutes)..."
 cilium_ready=0
@@ -371,7 +374,7 @@ echo "K8s Version: 1.34.0"
 echo "Status: Running with Cilium + ArgoCD GitOps"
 echo ""
 echo "Deployed Helm Releases (direct installs):"
-echo "- Cilium v1.18.3 (CNI with kube-proxy replacement, LoadBalancer)"
+echo "- Cilium v${CILIUM_VERSION} (CNI with kube-proxy replacement, LoadBalancer)"
 echo "- ArgoCD v3.2.0 (GitOps orchestration)"
 echo ""
 echo "Cilium LoadBalancer Configuration:"
@@ -424,7 +427,7 @@ echo "Architecture:"
 echo "=================================="
 echo ""
 echo "Infrastructure (Direct Helm):"
-echo "  ├─ Cilium v1.18.3 (eBPF, kube-proxy replacement, L2 LoadBalancer)"
+echo "  ├─ Cilium v${CILIUM_VERSION} (eBPF, kube-proxy replacement, L2 LoadBalancer)"
 echo "  │  ├─ LoadBalancer IP Pool: 172.18.1.0/24"
 echo "  │  └─ L2 Announcement: eth0"
 echo "  └─ ArgoCD v3.2.0 (GitOps orchestration)"
