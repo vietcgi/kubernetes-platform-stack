@@ -1,0 +1,21 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"networking.k8s.io/v1","kind":"NetworkPolicy","metadata":{"annotations":{},"name":"longhorn-allow-all","namespace":"longhorn-system"},"spec":{"egress":[{}],"ingress":[{}],"podSelector":{},"policyTypes":["Ingress","Egress"]}}
+  creationTimestamp: "2025-11-10T02:42:24Z"
+  generation: 1
+  name: longhorn-allow-all
+  namespace: longhorn-system
+  resourceVersion: "55255"
+  uid: 557aad06-f02a-4858-846c-41d665b321a7
+spec:
+  egress:
+  - {}
+  ingress:
+  - {}
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
