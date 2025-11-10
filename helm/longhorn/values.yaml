@@ -1,0 +1,90 @@
+# Longhorn Helm Chart Values
+# Persistent storage and volume management
+
+longhorn:
+  # Disable pre-upgrade checker Job for GitOps compatibility (official Longhorn param)
+  preUpgradeChecker:
+    jobEnabled: false
+
+  # Persistence configuration
+  persistence:
+    defaultClassReplicaCount: 1
+
+  # Default settings
+  defaultSettings:
+    backupTarget: ""
+    backupTargetCredentialSecret: ""
+
+  # CSI components configuration (set to 1 replica for laptop deployment)
+  csi:
+    attacher:
+      replicaCount: 1
+    provisioner:
+      replicaCount: 1
+    resizer:
+      replicaCount: 1
+    snapshotter:
+      replicaCount: 1
+
+  # Longhorn UI configuration
+  longhornUI:
+    replicas: 1
+
+  # Ingress configuration for Kong
+  ingress:
+    enabled: true
+    ingressClassName: kong
+    annotations:
+      konghq.com/strip-path: "true"
+    host: longhorn.demo.local
+
+  # Pod security context
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    fsGroup: 1000
+
+  # Container security context
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+      - ALL
+    readOnlyRootFilesystem: true
+
+  # RBAC
+  rbac:
+    create: true
+
+  # Service account
+  serviceAccount:
+    create: true
+    name: longhorn
+
+# Resource limits
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 1Gi
+
+# Node selector
+nodeSelector: {}
+
+# Tolerations
+tolerations: []
+
+# Affinity
+affinity: {}
+
+# Pod disruption budget
+podDisruptionBudget:
+  enabled: false
+
+# Service Monitor for Prometheus (optional)
+serviceMonitor:
+  enabled: false
+  namespace: monitoring
+  interval: 30s

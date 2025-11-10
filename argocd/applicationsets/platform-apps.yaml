@@ -140,18 +140,18 @@ spec:
       # Enterprise Features - Storage & Backup
       - name: longhorn
         namespace: longhorn-system
-        repoURL: https://charts.longhorn.io
-        chart: longhorn
-        version: "1.6.0"  # Pinned version for stability
+        repoURL: https://github.com/vietcgi/kubernetes-platform-stack
+        chart: ./helm/longhorn
+        targetRevision: main
         syncPolicy: aggressive
         group: infrastructure
         syncWave: 4
 
       - name: velero
         namespace: velero
-        repoURL: https://vmware-tanzu.github.io/helm-charts
-        chart: velero
-        version: "7.0.0"  # Pinned version for stability
+        repoURL: https://github.com/vietcgi/kubernetes-platform-stack
+        chart: ./helm/velero
+        targetRevision: main
         syncPolicy: aggressive
         group: infrastructure
         syncWave: 4
@@ -370,74 +370,6 @@ spec:
                   paths:
                     - path: /
                       pathType: Prefix
-            {{ else if eq .name "longhorn" }}
-            # Longhorn persistent storage
-            # Disable pre-upgrade checker Job for GitOps compatibility (official Longhorn param)
-            preUpgradeChecker:
-              jobEnabled: false
-            persistence:
-              defaultClassReplicaCount: 1
-            defaultSettings:
-              backupTarget: ""
-              backupTargetCredentialSecret: ""
-            # Set all CSI components to 1 replica for laptop deployment
-            csi:
-              attacher:
-                replicaCount: 1
-              provisioner:
-                replicaCount: 1
-              resizer:
-                replicaCount: 1
-              snapshotter:
-                replicaCount: 1
-            # Set UI to 1 replica
-            longhornUI:
-              replicas: 1
-            # Longhorn UI ingress for Kong
-            ingress:
-              enabled: true
-              ingressClassName: kong
-              annotations:
-                konghq.com/strip-path: "true"
-              host: longhorn.demo.local
-            {{ else if eq .name "velero" }}
-            # Velero backup and disaster recovery
-            # Disable CRD upgrade hook - incompatible with GitOps (use official parameter)
-            upgradeCRDs: false
-            # Disable default volume snapshot location (causes validation errors without cloud provider)
-            configuration:
-              backupStorageLocation:
-                - name: default
-                  provider: aws
-                  bucket: velero-backups
-              defaultVolumesToFsBackup: true
-              volumeSnapshotLocation: []
-              schedules:
-                daily:
-                  schedule: "0 2 * * *"
-                  template:
-                    ttl: "720h"
-            snapshotsEnabled: false
-            # Velero UI ingress for Kong
-            serverSecretKeyname: server-certs
-            metrics:
-              enabled: true
-              serviceMonitor:
-                enabled: false
-            schedules: {}
-            expose:
-              nodePort: false
-            ui:
-              enabled: true
-              service:
-                type: ClusterIP
-              ingress:
-                enabled: true
-                ingressClassName: kong
-                annotations:
-                  konghq.com/strip-path: "true"
-                host: velero.demo.local
-                path: /
             {{ else if eq .name "jaeger" }}
             # Jaeger distributed tracing with in-memory storage (suitable for KIND)
             provisionDataStore:

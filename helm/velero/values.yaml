@@ -1,0 +1,97 @@
+# Velero Helm Chart Values
+# Backup and disaster recovery solution
+
+velero:
+  # Disable CRD upgrade hook - incompatible with GitOps (use official parameter)
+  upgradeCRDs: false
+
+  # Disable default volume snapshot location (causes validation errors without cloud provider)
+  configuration:
+    backupStorageLocation:
+      - name: default
+        provider: aws
+        bucket: velero-backups
+    defaultVolumesToFsBackup: true
+    volumeSnapshotLocation: []
+    schedules:
+      daily:
+        schedule: "0 2 * * *"
+        template:
+          ttl: "720h"
+
+  snapshotsEnabled: false
+
+  # Velero server certificate configuration
+  serverSecretKeyname: server-certs
+
+  # Metrics configuration
+  metrics:
+    enabled: true
+    serviceMonitor:
+      enabled: false
+
+  # Schedules (can be defined separately if needed)
+  schedules: {}
+
+  # Expose configuration
+  expose:
+    nodePort: false
+
+  # Velero UI configuration
+  ui:
+    enabled: true
+    service:
+      type: ClusterIP
+    # Ingress configuration for Kong
+    ingress:
+      enabled: true
+      ingressClassName: kong
+      annotations:
+        konghq.com/strip-path: "true"
+      host: velero.demo.local
+      path: /
+
+  # Pod security context
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    fsGroup: 1000
+
+  # Container security context
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+      - ALL
+    readOnlyRootFilesystem: true
+
+  # RBAC
+  rbac:
+    create: true
+
+  # Service account
+  serviceAccount:
+    create: true
+    name: velero
+
+# Resource limits
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 1Gi
+
+# Node selector
+nodeSelector: {}
+
+# Tolerations
+tolerations: []
+
+# Affinity
+affinity: {}
+
+# Pod disruption budget
+podDisruptionBudget:
+  enabled: false
