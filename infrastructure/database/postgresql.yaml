@@ -5,7 +5,7 @@ metadata:
   namespace: infrastructure
 type: Opaque
 data:
-  password: cG9zdGdyZXMxMjM= # base64 encoded: postgres123
+  password: bndpZUdNcnlIdXd5ZzBSSFNIb2drb1kvM0hhbmh6OTM=
 
 ---
 apiVersion: v1
