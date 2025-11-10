@@ -136,6 +136,18 @@ kubectl create namespace sealed-secrets --dry-run=client -o yaml | kubectl apply
 kubectl create namespace gatekeeper-system --dry-run=client -o yaml | kubectl apply -f -
 kubectl create namespace audit-logging --dry-run=client -o yaml | kubectl apply -f -
 
+# Step 4.5: Create PostgreSQL secret if it doesn't exist
+log_info "Creating PostgreSQL secret..."
+if ! kubectl get secret postgres-secret -n infrastructure &>/dev/null; then
+    POSTGRES_PASSWORD=$(openssl rand -base64 24)
+    kubectl create secret generic postgres-secret \
+        --from-literal=password="$POSTGRES_PASSWORD" \
+        -n infrastructure
+    log_info "PostgreSQL secret created with randomly generated password"
+else
+    log_info "PostgreSQL secret already exists, skipping creation"
+fi
+
 # Label namespaces for Istio injection (optional, but useful for observability)
 if ! kubectl label namespace monitoring istio-injection=enabled --overwrite 2>/dev/null; then
     log_warn "Could not label monitoring namespace for Istio injection"
