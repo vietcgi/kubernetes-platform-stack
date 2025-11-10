@@ -138,10 +138,9 @@ jobs:
         run: |
           helm repo add cilium https://helm.cilium.io
           helm repo update
-          timeout 5m helm install cilium cilium/cilium --version 1.15.6 \
+          timeout 5m helm install cilium cilium/cilium \
             --namespace kube-system \
-            --set kubeProxyReplacement=false \
-            --set cni.chainingMode=none \
+            --set debug.verbose=false \
             --wait=false 2>&1 || echo "Cilium installation optional"
 
           sleep 10
