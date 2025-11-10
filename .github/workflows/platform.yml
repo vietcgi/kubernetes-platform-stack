@@ -100,28 +100,35 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Create KIND cluster config file
+        run: |
+          mkdir -p /tmp/kind
+          cat > /tmp/kind/kind-config.yaml << 'EOF'
+          kind: Cluster
+          apiVersion: kind.x-k8s.io/v1alpha4
+          nodes:
+          - role: control-plane
+            extraPortMappings:
+            - containerPort: 80
+              hostPort: 80
+              protocol: TCP
+            - containerPort: 443
+              hostPort: 443
+              protocol: TCP
+            - containerPort: 8080
+              hostPort: 8080
+              protocol: TCP
+          - role: worker
+          - role: worker
+          EOF
+
       - name: Create KIND cluster
         uses: helm/kind-action@v1.13.0
         with:
           cluster_name: platform
           node_image: kindest/node:v1.34.0
-          config: |
-            kind: Cluster
-            apiVersion: kind.x-k8s.io/v1alpha4
-            nodes:
-            - role: control-plane
-              extraPortMappings:
-              - containerPort: 80
-                hostPort: 80
-                protocol: TCP
-              - containerPort: 443
-                hostPort: 443
-                protocol: TCP
-              - containerPort: 8080
-                hostPort: 8080
-                protocol: TCP
-            - role: worker
-            - role: worker
+          config: /tmp/kind/kind-config.yaml
+          wait: 300
 
       - name: Verify cluster
         run: |
