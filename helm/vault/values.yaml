@@ -60,8 +60,27 @@ vault:
       enabled: false
       replicas: 1
 
-    # TLS
-    tlsDisable: true  # For testing, enable TLS in production
+    # TLS Configuration
+    # CRITICAL: TLS MUST be enabled in production environments
+    # For development/testing, you can disable with: tlsDisable: true
+    # For production:
+    # 1. Generate or obtain TLS certificates signed by a trusted CA
+    # 2. Create Kubernetes secrets: kubectl create secret tls vault-tls --cert=vault.crt --key=vault.key -n vault
+    # 3. Set tlsDisable: false and configure tlsCert and tlsKey below
+    tlsDisable: true  # Change to false and configure TLS certificates below for production
+
+    # Uncomment and configure these for TLS in production:
+    # tlsCert: |
+    #   -----BEGIN CERTIFICATE-----
+    #   <your-tls-certificate-here>
+    #   -----END CERTIFICATE-----
+    # tlsKey: |
+    #   -----BEGIN PRIVATE KEY-----
+    #   <your-private-key-here>
+    #   -----END PRIVATE KEY-----
+
+    # Alternative: Reference secret containing pre-created TLS cert/key
+    # existingSecret: vault-tls
 
   # UI
   ui:

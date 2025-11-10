@@ -89,10 +89,14 @@ argo-cd:
 
   # ArgoCD configs
   configs:
-    # Initial admin password (change in production)
+    # Initial admin password (use Sealed Secrets for production)
+    # To set the admin password securely, use one of these approaches:
+    # 1. Create a Sealed Secret: https://github.com/bitnami-labs/sealed-secrets
+    #    kubectl create secret generic argocd-initial-admin --from-literal=password='<new-password>' -n argocd --dry-run=client -o yaml | kubeseal -f - > sealed-argocd-secret.yaml
+    # 2. Use External Secrets Operator to fetch from Vault
+    # 3. Use ArgoCD OIDC/Dex authentication for OAuth-based login
     secret:
-      createSecret: true
-      argocdServerAdminPassword: "$2a$10$rRyVfvhzz0yWHtPIaYN1/.TY67PPLlrdLarg/DxwXE8/pWqdtoKlm"  # "admin123"
+      createSecret: false  # Set to false when using external secret management
 
     # Repository credentials
     repositories: {}
@@ -102,10 +106,9 @@ argo-cd:
       #   username: username
       #   password: token
 
-    # SSH known hosts for Git
+    # SSH known hosts for Git (these are public keys and will be auto-populated by ArgoCD)
     knownHosts:
-      data:
-        github.com: "github.com ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAq2A7hRGqdnnARrRQtsKFvu7jFzlMwlFjwNyfSlqtbuwLsiZawejfAMJLIWpcxP7kz..."
+      data: {}
 
     # RBAC configuration
     rbac:

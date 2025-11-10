@@ -29,7 +29,7 @@ spec:
         namespace: kube-system
         repoURL: https://kubernetes-sigs.github.io/metrics-server/
         chart: metrics-server
-        version: "*"
+        version: "3.12.1"  # Pinned version for stability
         syncPolicy: aggressive
         group: infrastructure
         syncWave: 0
@@ -38,7 +38,7 @@ spec:
         namespace: monitoring
         repoURL: https://grafana.github.io/helm-charts
         chart: loki-stack
-        version: "*"
+        version: "2.10.2"  # Pinned version for stability
         syncPolicy: aggressive
         group: observability
         syncWave: 1
@@ -47,7 +47,7 @@ spec:
         namespace: monitoring
         repoURL: https://grafana.github.io/helm-charts
         chart: tempo
-        version: "*"
+        version: "1.8.0"  # Pinned version for stability
         syncPolicy: aggressive
         group: observability
         syncWave: 1
@@ -57,7 +57,7 @@ spec:
         namespace: istio-system
         repoURL: https://istio-release.storage.googleapis.com/charts
         chart: istiod
-        version: "*"
+        version: "1.21.0"  # Pinned version for stability
         syncPolicy: conservative
         group: service_mesh
         syncWave: 2
@@ -67,7 +67,7 @@ spec:
         namespace: cert-manager
         repoURL: https://charts.jetstack.io
         chart: cert-manager
-        version: "*"
+        version: "v1.14.0"  # Pinned version for stability
         syncPolicy: aggressive
         group: security
         syncWave: 0
@@ -76,7 +76,7 @@ spec:
         namespace: vault
         repoURL: https://helm.releases.hashicorp.com
         chart: vault
-        version: "*"
+        version: "0.28.0"  # Pinned version for stability
         syncPolicy: aggressive
         group: security
         syncWave: 3
@@ -85,7 +85,7 @@ spec:
         namespace: falco
         repoURL: https://falcosecurity.github.io/charts
         chart: falco
-        version: "*"
+        version: "4.2.1"  # Pinned version for stability
         syncPolicy: aggressive
         group: security
         syncWave: 3
@@ -94,7 +94,7 @@ spec:
         namespace: kyverno
         repoURL: https://kyverno.github.io/kyverno
         chart: kyverno
-        version: "*"
+        version: "3.2.1"  # Pinned version for stability
         syncPolicy: aggressive
         group: security
         syncWave: 3
@@ -103,7 +103,7 @@ spec:
         namespace: sealed-secrets
         repoURL: https://bitnami-labs.github.io/sealed-secrets
         chart: sealed-secrets
-        version: "*"
+        version: "2.13.2"  # Pinned version for stability
         syncPolicy: aggressive
         group: security
         syncWave: 3
@@ -113,7 +113,7 @@ spec:
         namespace: gatekeeper-system
         repoURL: https://open-policy-agent.github.io/gatekeeper/charts
         chart: gatekeeper
-        version: "*"
+        version: "3.17.0"  # Pinned version for stability
         syncPolicy: aggressive
         group: governance
         syncWave: 3
@@ -123,7 +123,7 @@ spec:
         namespace: external-dns
         repoURL: https://kubernetes-sigs.github.io/external-dns/
         chart: external-dns
-        version: "*"
+        version: "1.14.3"  # Pinned version for stability
         syncPolicy: aggressive
         group: infrastructure
         syncWave: 0
@@ -132,7 +132,7 @@ spec:
         namespace: api-gateway
         repoURL: https://charts.konghq.com
         chart: kong
-        version: "*"
+        version: "2.39.0"  # Pinned version for stability
         syncPolicy: aggressive
         group: infrastructure
         syncWave: 2
@@ -142,7 +142,7 @@ spec:
         namespace: longhorn-system
         repoURL: https://charts.longhorn.io
         chart: longhorn
-        version: "*"
+        version: "1.6.0"  # Pinned version for stability
         syncPolicy: aggressive
         group: infrastructure
         syncWave: 4
@@ -151,7 +151,7 @@ spec:
         namespace: velero
         repoURL: https://vmware-tanzu.github.io/helm-charts
         chart: velero
-        version: "*"
+        version: "7.0.0"  # Pinned version for stability
         syncPolicy: aggressive
         group: infrastructure
         syncWave: 4
@@ -161,7 +161,7 @@ spec:
         namespace: tracing
         repoURL: https://jaegertracing.github.io/helm-charts
         chart: jaeger
-        version: "*"
+        version: "3.3.0"  # Pinned version for stability
         syncPolicy: aggressive
         group: observability
         syncWave: 2
@@ -171,7 +171,7 @@ spec:
         namespace: harbor
         repoURL: https://helm.goharbor.io
         chart: harbor
-        version: "*"
+        version: "1.14.0"  # Pinned version for stability
         syncPolicy: aggressive
         group: infrastructure
         syncWave: 4
@@ -250,7 +250,8 @@ spec:
                 hosts:
                   - grafana.demo.local
                 path: /
-              adminPassword: prom-operator
+              # Admin password should be managed via Sealed Secrets, not hardcoded
+              adminPassword: ""
             kubeStateMetrics:
               enabled: true
               replicas: 1

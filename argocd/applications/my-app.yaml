@@ -12,9 +12,11 @@ spec:
     helm:
       parameters:
       - name: image.pullPolicy
-        value: "Never"
+        value: "IfNotPresent"
       - name: image.tag
         value: "latest"
+      - name: istio.enabled
+        value: "true"
   destination:
     server: https://kubernetes.default.svc
     namespace: app
@@ -26,3 +28,20 @@ spec:
     - CreateNamespace=true
     - RespectIgnoreDifferences=true
   revisionHistoryLimit: 10
+  ignoreDifferences:
+  - group: networking.istio.io
+    kind: DestinationRule
+    jsonPointers:
+    - /spec
+  - group: networking.istio.io
+    kind: VirtualService
+    jsonPointers:
+    - /spec
+  - group: security.istio.io
+    kind: PeerAuthentication
+    jsonPointers:
+    - /spec
+  - group: security.istio.io
+    kind: AuthorizationPolicy
+    jsonPointers:
+    - /spec

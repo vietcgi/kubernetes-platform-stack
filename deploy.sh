@@ -126,8 +126,12 @@ kubectl create namespace gatekeeper-system --dry-run=client -o yaml | kubectl ap
 kubectl create namespace audit-logging --dry-run=client -o yaml | kubectl apply -f -
 
 # Label namespaces for Istio injection (optional, but useful for observability)
-kubectl label namespace monitoring istio-injection=enabled --overwrite || true
-kubectl label namespace app istio-injection=enabled --overwrite || true
+if ! kubectl label namespace monitoring istio-injection=enabled --overwrite 2>/dev/null; then
+    log_warn "Could not label monitoring namespace for Istio injection"
+fi
+if ! kubectl label namespace app istio-injection=enabled --overwrite 2>/dev/null; then
+    log_warn "Could not label app namespace for Istio injection"
+fi
 
 # Step 5: CoreDNS is installed by KIND - verify it's running
 log_info "Verifying CoreDNS is running..."
@@ -200,7 +204,7 @@ log_info "Detecting control plane IP address..."
 CONTROL_PLANE_IP=$(kubectl get node "$CONTROL_PLANE_NODE" -o jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}')
 log_info "Control plane IP: $CONTROL_PLANE_IP"
 
-helm upgrade --install cilium cilium/cilium \
+if ! helm upgrade --install cilium cilium/cilium \
   --version "$CILIUM_VERSION" \
   --namespace kube-system \
   --set kubeProxyReplacement=true \
@@ -209,7 +213,10 @@ helm upgrade --install cilium cilium/cilium \
   --set hubble.enabled=true \
   --set hubble.relay.enabled=true \
   --set hubble.ui.enabled=true \
-  --values "$SCRIPT_DIR/helm/cilium/values.yaml" 2>&1 | tail -5
+  --values "$SCRIPT_DIR/helm/cilium/values.yaml" 2>&1 | tail -5; then
+    log_error "Failed to install Cilium"
+    exit 1
+fi
 
 log_info "Waiting for Cilium to be ready (this may take 5-10 minutes)..."
 cilium_ready=0
@@ -305,12 +312,16 @@ if [ ! -f "$SCRIPT_DIR/argocd/applicationsets/platform-apps.yaml" ]; then
     log_error "ApplicationSet file not found: $SCRIPT_DIR/argocd/applicationsets/platform-apps.yaml"
     exit 1
 fi
-kubectl apply -f "$SCRIPT_DIR/argocd/applicationsets/platform-apps.yaml" &
+
+# Apply ApplicationSet in background
+kubectl apply -f "$SCRIPT_DIR/argocd/applicationsets/platform-apps.yaml" > /tmp/applicationset.log 2>&1 &
+APPLICATIONSET_PID=$!
 
 # Apply Kong ingress routes Application (managed by ArgoCD)
 log_info "Applying Kong Ingress Routes Application..."
 if [ -f "$SCRIPT_DIR/argocd/applications/kong-ingress.yaml" ]; then
-    kubectl apply -f "$SCRIPT_DIR/argocd/applications/kong-ingress.yaml" &
+    kubectl apply -f "$SCRIPT_DIR/argocd/applications/kong-ingress.yaml" > /tmp/kong-ingress.log 2>&1 &
+    KONG_INGRESS_PID=$!
 else
     log_warn "Kong ingress Application not found: $SCRIPT_DIR/argocd/applications/kong-ingress.yaml"
 fi
@@ -334,6 +345,25 @@ else
 fi
 
 wait  # Wait for all kubectl apply commands to complete
+
+# Wait for background jobs and check for errors
+wait $APPLICATIONSET_PID
+if [ $? -ne 0 ]; then
+    log_error "Failed to apply ApplicationSet. See details:"
+    cat /tmp/applicationset.log
+    exit 1
+fi
+log_info "ApplicationSet applied successfully"
+
+if [ -n "$KONG_INGRESS_PID" ]; then
+    wait $KONG_INGRESS_PID
+    if [ $? -ne 0 ]; then
+        log_warn "Failed to apply Kong Ingress Application. See details:"
+        cat /tmp/kong-ingress.log
+    else
+        log_info "Kong Ingress Application applied successfully"
+    fi
+fi
 
 # Step 12: Wait for all applications to be created by ApplicationSet
 log_info "Waiting for ApplicationSet to generate applications..."
