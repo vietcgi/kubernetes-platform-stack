@@ -16,6 +16,9 @@ argo-cd:
       targetPort: 8080
     extraArgs:
       - --insecure  # Use insecure mode for testing (set to false in prod)
+    # Disable TLS completely for HTTP-only operation behind Kong ingress
+    tls:
+      enabled: false
     resources:
       requests:
         cpu: 100m
@@ -168,6 +171,7 @@ argo-cd:
     ingressClassName: kong
     annotations:
       konghq.com/strip-path: "true"
+      konghq.com/protocols: "http"
     hosts:
       - host: argocd.demo.local
         paths:
