@@ -21,10 +21,10 @@ nodes:
   image: kindest/node:v1.34.0
   extraPortMappings:
   - containerPort: 8000
-    hostPort: 8080
+    hostPort: 81
     protocol: TCP
   - containerPort: 8443
-    hostPort: 8443
+    hostPort: 8444
     protocol: TCP
   labels:
     bgp: enabled
