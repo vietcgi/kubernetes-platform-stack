@@ -175,11 +175,6 @@ kubectl wait deployment argocd-application-controller -n argocd --for=condition=
 log_info "Waiting for ArgoCD repo server..."
 kubectl wait deployment argocd-repo-server -n argocd --for=condition=Available --timeout=$STARTUP_TIMEOUT 2>/dev/null || true
 
-log_info "Applying ArgoCD network policies and configuration..."
-kubectl apply -f manifests/argocd/network-policies.yaml
-kubectl apply -f manifests/argocd/cmd-params.yaml
-sleep 5
-
 echo ""
 echo "=============================================="
 echo "PHASE 3: Bootstrap GitOps"
