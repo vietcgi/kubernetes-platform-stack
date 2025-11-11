@@ -4,6 +4,7 @@ kind: Kustomization
 namespace: argocd
 
 resources:
+  - root-app.yaml
   - _coredns.yaml
   - _infra-apps.yaml
 
