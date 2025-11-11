@@ -9,7 +9,7 @@ spec:
   project: default
   source:
     repoURL: https://github.com/vietcgi/kubernetes-platform-stack
-    targetRevision: main
+    targetRevision: 20d680e
     path: argocd/applications
   destination:
     server: https://kubernetes.default.svc
