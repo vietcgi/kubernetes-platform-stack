@@ -10,7 +10,7 @@ spec:
 
   source:
     repoURL: https://github.com/vietcgi/kubernetes-platform-stack
-    targetRevision: 20d680e
+    targetRevision: main
     path: manifests/coredns
 
   destination:
