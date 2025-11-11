@@ -1,6 +1,5 @@
 # Minimal ArgoCD Helm Values
 # Installs only core ArgoCD components
-# All configuration (network policies, RBAC, ingress) managed by ArgoCD itself via argocd-config Application
 
 argo-cd:
   global:
@@ -10,6 +9,7 @@ argo-cd:
   server:
     enabled: true
     replicaCount: 1
+    insecure: true
     resources:
       requests:
         cpu: 100m
@@ -88,11 +88,12 @@ argo-cd:
         cpu: 200m
         memory: 512Mi
 
-  # Disable all configuration here - managed by argocd-config Application
+  # Minimal ArgoCD configuration
   configs:
-    params: {}
+    params:
+      server.insecure: "true"
     secret:
-      createSecret: false
+      createSecret: true
     repositories: {}
     knownHosts:
       data: {}
