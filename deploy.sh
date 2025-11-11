@@ -201,6 +201,9 @@ echo "PHASE 3: Bootstrap GitOps"
 echo "=============================================="
 echo ""
 
+log_info "Applying network policies..."
+kubectl apply -f manifests/argocd/network-policies.yaml
+
 log_info "Applying root-app..."
 kubectl apply -f argocd/bootstrap/root-app.yaml
 sleep 5
