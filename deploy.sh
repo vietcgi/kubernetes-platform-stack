@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CLUSTER_NAME="${CLUSTER_NAME:-platform}"
 MONITORING_DURATION=${MONITORING_DURATION:-1200}
 CHECK_INTERVAL=10
-STARTUP_TIMEOUT=600
+STARTUP_TIMEOUT=600s
 FORCE_DELETE=false
 
 # Colors
@@ -152,7 +152,7 @@ if ! helm upgrade --install cilium cilium/cilium \
 fi
 
 log_info "Waiting for Cilium pods..."
-kubectl wait --for=condition=ready pod -l k8s-app=cilium -n kube-system --timeout=300
+kubectl wait --for=condition=ready pod -l k8s-app=cilium -n kube-system --timeout=300s
 
 echo ""
 echo "=============================================="
