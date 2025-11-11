@@ -1,0 +1,10 @@
+# CoreDNS Configuration for Kubernetes Platform Bootstrap
+# Optimizes resource limits for lightweight KIND cluster deployment
+
+resources:
+  limits:
+    cpu: 100m
+    memory: 64Mi
+  requests:
+    cpu: 50m
+    memory: 32Mi

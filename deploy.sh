@@ -103,22 +103,10 @@ echo ""
 log_info "Waiting for API server..."
 kubectl wait --for=condition=available --timeout=$STARTUP_TIMEOUT deployment/coredns -n kube-system 2>/dev/null || true
 
-log_info "Patching CoreDNS..."
-kubectl patch deployment coredns -n kube-system -p '{
-  "spec": {
-    "template": {
-      "spec": {
-        "containers": [{
-          "name": "coredns",
-          "resources": {
-            "limits": {"cpu": "100m", "memory": "64Mi"},
-            "requests": {"cpu": "50m", "memory": "32Mi"}
-          }
-        }]
-      }
-    }
-  }
-}' 2>/dev/null || true
+log_info "Configuring CoreDNS with Helm..."
+helm upgrade --install coredns-config "$SCRIPT_DIR/helm/coredns" \
+  --namespace kube-system \
+  --wait
 
 log_info "Waiting for CoreDNS pods..."
 kubectl wait --for=condition=ready pod -l k8s-app=kube-dns -n kube-system --timeout=$STARTUP_TIMEOUT

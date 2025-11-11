@@ -1,0 +1,20 @@
+---
+# Patch the existing CoreDNS deployment with optimized resource limits
+# This applies resource constraints suitable for KIND cluster bootstrap
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: coredns
+  namespace: kube-system
+spec:
+  template:
+    spec:
+      containers:
+      - name: coredns
+        resources:
+          limits:
+            cpu: {{ .Values.resources.limits.cpu }}
+            memory: {{ .Values.resources.limits.memory }}
+          requests:
+            cpu: {{ .Values.resources.requests.cpu }}
+            memory: {{ .Values.resources.requests.memory }}
