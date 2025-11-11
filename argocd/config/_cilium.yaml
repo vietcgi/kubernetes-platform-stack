@@ -7,7 +7,6 @@ metadata:
     - resources-finalizer.argocd.argoproj.io
 spec:
   project: default
-
   source:
     repoURL: https://helm.cilium.io
     targetRevision: 1.18.3
@@ -15,28 +14,19 @@ spec:
     helm:
       releaseName: cilium
       values: |
-        # Core networking
         kubeProxyReplacement: strict
         k8sServiceHost: "kubernetes.default.svc.cluster.local"
         k8sServicePort: 443
-
-        # eBPF dataplane
         ebpf:
           enabled: true
-
-        # Network policies
         networkPolicy:
           enabled: true
-
-        # Observability
         hubble:
           enabled: true
           relay:
             enabled: true
           ui:
             enabled: true
-
-        # Resource limits for KIND
         resources:
           limits:
             cpu: 500m
@@ -44,11 +34,9 @@ spec:
           requests:
             cpu: 100m
             memory: 128Mi
-
   destination:
     server: https://kubernetes.default.svc
     namespace: kube-system
-
   syncPolicy:
     automated:
       prune: true
