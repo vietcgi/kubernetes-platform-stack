@@ -96,7 +96,7 @@ fi
 echo ""
 
 echo "=============================================="
-echo "PHASE 1: Network Prerequisites (CoreDNS)"
+echo "PHASE 1: Network Prerequisites (CoreDNS & Cilium)"
 echo "=============================================="
 echo ""
 
@@ -123,7 +123,20 @@ kubectl patch deployment coredns -n kube-system -p '{
 log_info "Waiting for CoreDNS pods..."
 kubectl wait --for=condition=ready pod -l k8s-app=kube-dns -n kube-system --timeout=$STARTUP_TIMEOUT
 
-log_info "Phase 1 complete - Cilium CNI will be installed by ArgoCD via root-app"
+log_info "Installing Cilium CNI..."
+helm repo add cilium https://helm.cilium.io
+helm repo update cilium
+
+helm upgrade --install cilium cilium/cilium \
+  --namespace kube-system \
+  --values "$SCRIPT_DIR/helm/cilium/values.yaml" \
+  --version 1.18.3 \
+  --wait
+
+log_info "Waiting for Cilium daemonset..."
+kubectl wait --for=condition=ready pod -l k8s-app=cilium -n kube-system --timeout=$STARTUP_TIMEOUT
+
+log_info "Phase 1 complete - Network prerequisites established"
 
 echo ""
 echo "=============================================="

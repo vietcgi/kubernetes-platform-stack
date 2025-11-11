@@ -8,32 +8,11 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://helm.cilium.io
-    targetRevision: 1.18.3
-    chart: cilium
-    helm:
-      releaseName: cilium
-      values: |
-        kubeProxyReplacement: strict
-        k8sServiceHost: "kubernetes.default.svc.cluster.local"
-        k8sServicePort: 443
-        ebpf:
-          enabled: true
-        networkPolicy:
-          enabled: true
-        hubble:
-          enabled: true
-          relay:
-            enabled: true
-          ui:
-            enabled: true
-        resources:
-          limits:
-            cpu: 500m
-            memory: 512Mi
-          requests:
-            cpu: 100m
-            memory: 128Mi
+    repoURL: https://github.com/vietcgi/kubernetes-platform-stack
+    targetRevision: main
+    path: helm/cilium
+  helm:
+    releaseName: cilium
   destination:
     server: https://kubernetes.default.svc
     namespace: kube-system
