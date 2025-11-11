@@ -132,13 +132,7 @@ helm upgrade --install cilium cilium/cilium \
   --namespace kube-system \
   --values "$SCRIPT_DIR/helm/cilium/values.yaml" \
   --version ${CILIUM_VERSION} \
-  --set kubeProxyReplacement=true \
   --set k8sServiceHost="$CONTROL_PLANE_IP" \
-  --set k8sServicePort=6443 \
-  --set hubble.enabled=true \
-  --set hubble.relay.enabled=true \
-  --set hubble.ui.enabled=true \
-  --set image.pullPolicy=IfNotPresent \
   --wait
 
 log_info "Waiting for Cilium to be ready (this may take 5-10 minutes)..."
