@@ -10,7 +10,7 @@ spec:
   source:
     repoURL: https://github.com/vietcgi/kubernetes-platform-stack
     targetRevision: main
-    path: helm/coredns
+    path: manifests/coredns
   destination:
     server: https://kubernetes.default.svc
     namespace: kube-system

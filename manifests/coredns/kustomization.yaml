@@ -1,0 +1,10 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# CoreDNS is a system component pre-installed by KIND.
+# This Application is a placeholder for post-bootstrap CoreDNS management.
+# Resource patching is performed imperatively in Phase 1 of deploy.sh
+# to avoid Helm ownership conflicts with the pre-existing deployment.
+
+namespace: kube-system
+resources: []

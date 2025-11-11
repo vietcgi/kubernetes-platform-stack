@@ -100,11 +100,22 @@ echo "PHASE 1: Network Prerequisites (CoreDNS & Cilium)"
 echo "=============================================="
 echo ""
 
-log_info "Configuring CoreDNS with Helm..."
-helm upgrade --install coredns-config "$SCRIPT_DIR/helm/coredns" \
-  --namespace kube-system \
-  --set image.pullPolicy=IfNotPresent \
-  --wait
+log_info "Patching CoreDNS with resource limits..."
+kubectl patch deployment coredns -n kube-system -p '{
+  "spec": {
+    "template": {
+      "spec": {
+        "containers": [{
+          "name": "coredns",
+          "resources": {
+            "limits": {"cpu": "100m", "memory": "64Mi"},
+            "requests": {"cpu": "50m", "memory": "32Mi"}
+          }
+        }]
+      }
+    }
+  }
+}' 2>/dev/null || true
 
 log_info "Installing Cilium CNI..."
 
