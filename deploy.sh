@@ -122,15 +122,53 @@ kind load docker-image "${CILIUM_OPERATOR_IMAGE}" --name "$CLUSTER_NAME" 2>&1 | 
 helm repo add cilium https://helm.cilium.io
 helm repo update cilium
 
+# Get control plane IP address to avoid DNS chicken-and-egg problem
+CONTROL_PLANE_NODE="${CLUSTER_NAME}-control-plane"
+log_info "Detecting control plane IP address..."
+CONTROL_PLANE_IP=$(kubectl get node "$CONTROL_PLANE_NODE" -o jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}')
+log_info "Control plane IP: $CONTROL_PLANE_IP"
+
 helm upgrade --install cilium cilium/cilium \
   --namespace kube-system \
   --values "$SCRIPT_DIR/helm/cilium/values.yaml" \
   --version ${CILIUM_VERSION} \
+  --set kubeProxyReplacement=true \
+  --set k8sServiceHost="$CONTROL_PLANE_IP" \
+  --set k8sServicePort=6443 \
+  --set hubble.enabled=true \
+  --set hubble.relay.enabled=true \
+  --set hubble.ui.enabled=true \
   --set image.pullPolicy=IfNotPresent \
   --wait
 
-log_info "Waiting for Cilium daemonset..."
-kubectl wait --for=condition=ready pod -l k8s-app=cilium -n kube-system --timeout=$STARTUP_TIMEOUT
+log_info "Waiting for Cilium to be ready (this may take 5-10 minutes)..."
+cilium_ready=0
+for i in {1..180}; do
+    # Check for running Cilium pods
+    cilium_pods=$(kubectl get pods -n kube-system -l k8s-app=cilium --field-selector=status.phase=Running 2>/dev/null | tail -n +2 | wc -l | xargs)
+
+    # Verify all nodes are Ready (critical for kube-proxy replacement validation)
+    if [ "$cilium_pods" -gt 0 ]; then
+        ready_nodes=$(kubectl get nodes --no-headers 2>/dev/null | grep -c " Ready " | xargs)
+        node_count=$(kubectl get nodes --no-headers 2>/dev/null | wc -l | xargs)
+
+        # Check if nodes are fully ready and kube-proxy mode is correctly set to none
+        if [ -n "$node_count" ] && [ "$node_count" -gt 0 ] && [ "$ready_nodes" -eq "$node_count" ]; then
+            cilium_ready=1
+            log_ok "✓ Cilium pods running: $cilium_pods, All nodes Ready: $ready_nodes/$node_count"
+            break
+        fi
+    fi
+
+    if [ $((i % 20)) -eq 0 ]; then
+        log_info "Waiting for Cilium initialization... ($i/180, pods: $cilium_pods, nodes: $ready_nodes)"
+    fi
+    sleep 5
+done
+
+if [ "$cilium_ready" -eq 0 ]; then
+    log_warn "Cilium initialization taking longer than expected, continuing anyway..."
+fi
 
 log_info "Phase 1 complete - Network prerequisites established"
 
