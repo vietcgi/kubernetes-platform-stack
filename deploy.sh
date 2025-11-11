@@ -100,25 +100,33 @@ echo "PHASE 1: Network Prerequisites (CoreDNS & Cilium)"
 echo "=============================================="
 echo ""
 
-log_info "Waiting for API server..."
-kubectl wait --for=condition=available --timeout=$STARTUP_TIMEOUT deployment/coredns -n kube-system 2>/dev/null || true
-
 log_info "Configuring CoreDNS with Helm..."
 helm upgrade --install coredns-config "$SCRIPT_DIR/helm/coredns" \
   --namespace kube-system \
+  --set image.pullPolicy=IfNotPresent \
   --wait
 
-log_info "Waiting for CoreDNS pods..."
-kubectl wait --for=condition=ready pod -l k8s-app=kube-dns -n kube-system --timeout=$STARTUP_TIMEOUT
-
 log_info "Installing Cilium CNI..."
+
+# Preload Cilium images for faster bootstrap and offline support
+CILIUM_VERSION="1.18.3"
+CILIUM_IMAGE="quay.io/cilium/cilium:${CILIUM_VERSION}"
+CILIUM_OPERATOR_IMAGE="quay.io/cilium/operator-generic:${CILIUM_VERSION}"
+
+log_info "Preloading Cilium images to speed up installation..."
+docker pull "${CILIUM_IMAGE}" 2>&1 | grep -E "Pulling|Downloaded|Already" | tail -3 || true
+docker pull "${CILIUM_OPERATOR_IMAGE}" 2>&1 | grep -E "Pulling|Downloaded|Already" | tail -3 || true
+kind load docker-image "${CILIUM_IMAGE}" --name "$CLUSTER_NAME" 2>&1 | tail -2 || true
+kind load docker-image "${CILIUM_OPERATOR_IMAGE}" --name "$CLUSTER_NAME" 2>&1 | tail -2 || true
+
 helm repo add cilium https://helm.cilium.io
 helm repo update cilium
 
 helm upgrade --install cilium cilium/cilium \
   --namespace kube-system \
   --values "$SCRIPT_DIR/helm/cilium/values.yaml" \
-  --version 1.18.3 \
+  --version ${CILIUM_VERSION} \
+  --set image.pullPolicy=IfNotPresent \
   --wait
 
 log_info "Waiting for Cilium daemonset..."
