@@ -6,6 +6,7 @@ namespace: argocd
 resources:
   - _coredns.yaml
   - _infra-apps.yaml
+  - root-app.yaml
 
 sortOptions:
   order: fifo
