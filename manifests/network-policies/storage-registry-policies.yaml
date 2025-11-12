@@ -85,9 +85,10 @@ spec:
       longhorn.io/admission-webhook: longhorn-admission-webhook
   description: "Allow Kubernetes API server to call Longhorn admission webhooks"
   ingress:
-  # From Kubernetes API server
+  # From Kubernetes API server (runs on host network in KIND)
   - fromEntities:
     - "kube-apiserver"
+    - "host"
     toPorts:
     - ports:
       - port: "9502"
