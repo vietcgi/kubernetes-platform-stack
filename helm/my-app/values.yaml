@@ -16,7 +16,7 @@ serviceAccount:
 
 podAnnotations:
   prometheus.io/scrape: "true"
-  prometheus.io/port: "8080"
+  prometheus.io/port: "80"
   prometheus.io/path: "/metrics"
   # Cilium BGP annotation for LoadBalancer IP advertisement
   io.cilium/bgp-advertise: "true"
@@ -36,7 +36,7 @@ securityContext:
 service:
   type: LoadBalancer
   port: 80
-  targetPort: 8080
+  targetPort: 80
   annotations:
     # Cilium BGP LoadBalancer annotation
     io.cilium/bgp-advertise: "true"
@@ -93,8 +93,8 @@ affinity:
 
 livenessProbe:
   httpGet:
-    path: /health
-    port: 8080
+    path: /
+    port: 80
   initialDelaySeconds: 10
   periodSeconds: 10
   timeoutSeconds: 3
@@ -102,8 +102,8 @@ livenessProbe:
 
 readinessProbe:
   httpGet:
-    path: /ready
-    port: 8080
+    path: /
+    port: 80
   initialDelaySeconds: 5
   periodSeconds: 5
   timeoutSeconds: 3
@@ -117,7 +117,7 @@ env:
   - name: LOG_LEVEL
     value: "INFO"
   - name: PORT
-    value: "8080"
+    value: "80"
 
 # Istio VirtualService configuration
 istio:
@@ -136,7 +136,7 @@ istio:
           - destination:
               host: my-app
               port:
-                number: 8080
+                number: 80
               subset: v1
             weight: 100
         timeout: 30s
@@ -206,11 +206,11 @@ networkPolicy:
               name: istio-system
       ports:
         - protocol: TCP
-          port: 8080
+          port: 80
     - from:
         - podSelector:
             matchLabels:
               app: my-app
       ports:
         - protocol: TCP
-          port: 8080
+          port: 80
