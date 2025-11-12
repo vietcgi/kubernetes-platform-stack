@@ -1,22 +1,22 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: metrics-server
+  name: platform-network-policies
   namespace: argocd
   labels:
-    app.kubernetes.io/name: metrics-server
+    app.kubernetes.io/name: network-policies
     app.kubernetes.io/group: infrastructure
     app.kubernetes.io/managed-by: applications
+  annotations:
+    argocd.argoproj.io/sync-wave: "5"
   finalizers:
     - resources-finalizer.argoproj.io
 spec:
   project: default
   source:
-    repoURL: https://kubernetes-sigs.github.io/metrics-server/
-    chart: metrics-server
-    targetRevision: '*'
-    helm:
-      releaseName: metrics-server
+    repoURL: https://github.com/vietcgi/kubernetes-platform-stack
+    targetRevision: main
+    path: manifests/network-policies
   destination:
     server: https://kubernetes.default.svc
     namespace: kube-system
@@ -27,17 +27,9 @@ spec:
     syncOptions:
       - CreateNamespace=true
       - RespectIgnoreDifferences=true
-      - SkipDryRunOnMissingResource=true
     retry:
-      limit: 10
+      limit: 5
       backoff:
         duration: 5s
         factor: 2
-        maxDuration: 5m
-  ignoreDifferences:
-    - group: apiextensions.k8s.io
-      kind: CustomResourceDefinition
-      jsonPointers:
-        - /spec/conversion
-        - /status
-        - /metadata/annotations
+        maxDuration: 3m
