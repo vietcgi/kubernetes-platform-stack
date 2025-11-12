@@ -1,0 +1,84 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kong
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: kong
+    app.kubernetes.io/group: infrastructure
+    app.kubernetes.io/managed-by: applications
+  finalizers:
+    - resources-finalizer.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://charts.konghq.com
+    chart: kong
+    targetRevision: '2.39.3'
+    helm:
+      releaseName: kong
+      values: |
+        ingressController:
+          enabled: true
+          installCRDs: false
+
+        proxy:
+          type: NodePort
+          http:
+            enabled: true
+            servicePort: 80
+            containerPort: 8000
+            nodePort: 32080
+          tls:
+            enabled: true
+            servicePort: 443
+            containerPort: 8443
+            nodePort: 32443
+
+        admin:
+          enabled: true
+          type: NodePort
+          http:
+            enabled: true
+            servicePort: 8001
+            containerPort: 8001
+            nodePort: 32001
+
+        manager:
+          enabled: true
+          type: NodePort
+          http:
+            enabled: true
+            servicePort: 8002
+            containerPort: 8002
+            nodePort: 32002
+
+        env:
+          database: "off"
+          nginx_worker_processes: "2"
+          proxy_access_log: /dev/stdout
+          admin_access_log: /dev/stdout
+          admin_gui_access_log: /dev/stdout
+          portal_api_access_log: /dev/stdout
+          proxy_error_log: /dev/stderr
+          admin_error_log: /dev/stderr
+          admin_gui_error_log: /dev/stderr
+          portal_api_error_log: /dev/stderr
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: api-gateway
+
+  syncPolicy:
+    automated:
+      selfHeal: true
+      prune: true
+    syncOptions:
+      - CreateNamespace=true
+      - RespectIgnoreDifferences=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 5m

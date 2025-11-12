@@ -11,10 +11,12 @@ spec:
     path: helm/my-app
     helm:
       parameters:
+      - name: image.repository
+        value: "nginx"
       - name: image.pullPolicy
         value: "IfNotPresent"
       - name: image.tag
-        value: "latest"
+        value: "1.27-alpine"
       - name: istio.enabled
         value: "false"
       - name: prometheus.enabled
