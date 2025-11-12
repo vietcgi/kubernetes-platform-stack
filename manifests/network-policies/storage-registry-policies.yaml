@@ -49,20 +49,10 @@ spec:
       - port: "9500"
         protocol: TCP
   egress:
-  # Longhorn to Longhorn (same namespace)
+  # Longhorn to Longhorn (same namespace) - allow all ports for internal communication
   - toEndpoints:
     - matchLabels:
-        app.kubernetes.io/name: longhorn
-    toPorts:
-    - ports:
-      - port: "9500"
-        protocol: TCP
-      - port: "9501"
-        protocol: TCP
-      - port: "9502"
-        protocol: TCP  # Webhook service
-      - port: "8500"
-        protocol: TCP
+        io.kubernetes.pod.namespace: longhorn-system
   # DNS resolution
   - toEndpoints:
     - matchLabels:
@@ -106,6 +96,14 @@ spec:
   - fromEndpoints:
     - matchLabels:
         io.kubernetes.pod.namespace: kube-system
+    toPorts:
+    - ports:
+      - port: "9502"
+        protocol: TCP
+  # From longhorn-system namespace (longhorn-manager calling its own webhook)
+  - fromEndpoints:
+    - matchLabels:
+        io.kubernetes.pod.namespace: longhorn-system
     toPorts:
     - ports:
       - port: "9502"
