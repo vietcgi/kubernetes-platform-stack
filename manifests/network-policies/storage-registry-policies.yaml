@@ -95,7 +95,7 @@ spec:
   # From kube-system namespace (API server pods)
   - fromEndpoints:
     - matchLabels:
-        io.kubernetes.pod.namespace: kube-system
+        any:io.kubernetes.pod.namespace: kube-system
     toPorts:
     - ports:
       - port: "9502"
@@ -103,7 +103,7 @@ spec:
   # From longhorn-system namespace (longhorn-manager calling its own webhook)
   - fromEndpoints:
     - matchLabels:
-        io.kubernetes.pod.namespace: longhorn-system
+        any:io.kubernetes.pod.namespace: longhorn-system
     toPorts:
     - ports:
       - port: "9502"
