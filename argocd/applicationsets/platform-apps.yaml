@@ -20,7 +20,7 @@ spec:
         namespace: kube-system
         repoURL: https://helm.cilium.io
         chart: cilium
-        version: "1.18.3"
+        version: "1.18.4"
         syncPolicy: conservative
         group: infrastructure
         syncWave: -1
@@ -30,7 +30,7 @@ spec:
         namespace: monitoring
         repoURL: https://prometheus-community.github.io/helm-charts
         chart: kube-prometheus-stack
-        version: "79.4.1"
+        version: "79.5.0"
         syncPolicy: aggressive
         group: observability
         syncWave: 1
@@ -39,7 +39,7 @@ spec:
         namespace: kube-system
         repoURL: https://kubernetes-sigs.github.io/metrics-server/
         chart: metrics-server
-        version: "3.12.2"
+        version: "3.13.0"
         syncPolicy: aggressive
         group: infrastructure
         syncWave: 0
@@ -48,7 +48,7 @@ spec:
         namespace: monitoring
         repoURL: https://grafana.github.io/helm-charts
         chart: loki-stack
-        version: "2.10.2"
+        version: "2.10.3"
         syncPolicy: aggressive
         group: observability
         syncWave: 1
@@ -95,7 +95,7 @@ spec:
         namespace: falco
         repoURL: https://falcosecurity.github.io/charts
         chart: falco
-        version: "4.21.0"
+        version: "7.0.1"
         syncPolicy: aggressive
         group: security
         syncWave: 3
@@ -113,7 +113,7 @@ spec:
         namespace: sealed-secrets
         repoURL: https://bitnami-labs.github.io/sealed-secrets
         chart: sealed-secrets
-        version: "2.17.0"
+        version: "2.17.9"
         syncPolicy: aggressive
         group: security
         syncWave: 3
@@ -123,7 +123,7 @@ spec:
         namespace: gatekeeper-system
         repoURL: https://open-policy-agent.github.io/gatekeeper/charts
         chart: gatekeeper
-        version: "3.18.2"
+        version: "3.20.1"
         syncPolicy: aggressive
         group: governance
         syncWave: 3
@@ -133,7 +133,7 @@ spec:
         namespace: external-dns
         repoURL: https://kubernetes-sigs.github.io/external-dns/
         chart: external-dns
-        version: "1.16.0"
+        version: "1.19.0"
         syncPolicy: aggressive
         group: infrastructure
         syncWave: 0
@@ -181,7 +181,7 @@ spec:
         namespace: monitoring
         repoURL: https://prometheus-community.github.io/helm-charts
         chart: prometheus-blackbox-exporter
-        version: "9.2.0"
+        version: "11.4.2"
         syncPolicy: aggressive
         group: observability
         syncWave: 2
@@ -223,7 +223,7 @@ spec:
             # Cilium CNI - Critical networking infrastructure
             image:
               repository: quay.io/cilium/cilium
-              tag: v1.18.3
+              tag: v1.18.4
               pullPolicy: IfNotPresent
             ipam:
               mode: kubernetes
