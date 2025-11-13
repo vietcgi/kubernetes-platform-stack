@@ -505,22 +505,31 @@ spec:
           namespace: velero
           jsonPointers:
             - /spec
+        # Ingress resources (ignore LoadBalancer status in local environments)
         - group: networking.k8s.io
           kind: Ingress
           name: loki
           namespace: monitoring
+          jsonPointers:
+            - /status/loadBalancer
         - group: networking.k8s.io
           kind: Ingress
           name: vault
           namespace: vault
+          jsonPointers:
+            - /status/loadBalancer
         - group: networking.k8s.io
           kind: Ingress
           name: prometheus-grafana
           namespace: monitoring
+          jsonPointers:
+            - /status/loadBalancer
         - group: networking.k8s.io
           kind: Ingress
           name: prometheus-kube-prometheus-prometheus
           namespace: monitoring
+          jsonPointers:
+            - /status/loadBalancer
         # Vault StatefulSet (ignore dynamic fields)
         - group: apps
           kind: StatefulSet
