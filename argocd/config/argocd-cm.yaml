@@ -31,17 +31,18 @@ data:
   statusbadge.enabled: "false"
 
   # Dex configuration for GitHub OAuth
-  dex.config: |
-    connectors:
-      - type: github
-        id: github
-        name: GitHub
-        config:
-          clientID: $dex.github.clientID
-          clientSecret: $dex.github.clientSecret
-          orgs:
-            # Replace with your GitHub organization name
-            - name: your-org-name
-              # Optional: specify teams (leave empty to allow all org members)
-              # teams:
-              #   - your-team-name
+  # Uncomment after creating GitHub OAuth app and sealed secret
+  # dex.config: |
+  #   connectors:
+  #     - type: github
+  #       id: github
+  #       name: GitHub
+  #       config:
+  #         clientID: $dex.github.clientID
+  #         clientSecret: $dex.github.clientSecret
+  #         orgs:
+  #           # Replace with your GitHub organization name
+  #           - name: your-org-name
+  #             # Optional: specify teams (leave empty to allow all org members)
+  #             # teams:
+  #             #   - your-team-name
