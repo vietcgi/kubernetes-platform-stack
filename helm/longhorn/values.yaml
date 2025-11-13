@@ -14,6 +14,8 @@ longhorn:
   defaultSettings:
     backupTarget: ""
     backupTargetCredentialSecret: ""
+    # Network policies handle webhook connectivity (see manifests/longhorn/network-policy.yaml)
+    # Webhook patch with failurePolicy: Ignore prevents bootstrap deadlock (see manifests/longhorn/webhook-patch.yaml)
 
   # CSI components configuration (set to 1 replica for laptop deployment)
   csi:

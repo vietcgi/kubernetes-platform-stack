@@ -133,7 +133,9 @@ loki-stack:
   # Grafana Integration
   grafana:
     enabled: false  # Grafana is deployed separately
-    # But Loki configures itself as a datasource
+    sidecar:
+      datasources:
+        enabled: false  # Disable Loki datasource provisioning (configured in prometheus chart)
 
   # Service Monitor for Prometheus
   serviceMonitor:
