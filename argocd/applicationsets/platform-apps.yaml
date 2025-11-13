@@ -256,7 +256,7 @@ spec:
               algorithm: maglev
               mode: snat
             kubeProxyReplacement: true
-            k8sServiceHost: "172.18.0.2"
+            k8sServiceHost: "172.18.0.3"
             k8sServicePort: 6443
             bpf:
               sockLB:
