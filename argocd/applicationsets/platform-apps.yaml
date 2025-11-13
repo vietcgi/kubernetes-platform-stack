@@ -463,7 +463,7 @@ spec:
           - CreateNamespace=true
           - RespectIgnoreDifferences=true
           - SkipDryRunOnMissingResource=true
-          - Replace=true
+          - ServerSideApply=true
         managedNamespaceMetadata:
           labels: {}
           annotations: {}
