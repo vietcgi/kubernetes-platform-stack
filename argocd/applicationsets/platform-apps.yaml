@@ -246,6 +246,9 @@ spec:
             replicaCount: 1
             {{ else if eq .name "prometheus" }}
             # Kube-prometheus-stack: Using v70.10.0 to avoid CRD annotation size issues
+            # Disable CRD installation - CRDs are managed separately via prometheus-crds Application
+            crds:
+              enabled: false
             prometheus:
               prometheusSpec:
                 podMonitorNamespaceSelector: {}
