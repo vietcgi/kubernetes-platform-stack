@@ -256,8 +256,8 @@ spec:
               algorithm: maglev
               mode: snat
             kubeProxyReplacement: true
-            k8sServiceHost: "172.18.0.3"
-            k8sServicePort: 6443
+            # k8sServiceHost/Port set dynamically by deploy.sh during bootstrap
+            # ArgoCD does not manage these values to keep config portable
             bpf:
               sockLB:
                 enabled: false
