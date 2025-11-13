@@ -10,6 +10,11 @@ loki-stack:
       tag: 3.0.0
       pullPolicy: IfNotPresent
 
+    # Datasource configuration (Prometheus is the default datasource)
+    datasource:
+      enabled: true
+      isDefault: false
+
     # Persistence for logs
     persistence:
       enabled: true
