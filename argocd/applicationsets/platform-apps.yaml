@@ -276,6 +276,15 @@ spec:
                 path: /
               # Admin password should be managed via Sealed Secrets, not hardcoded
               adminPassword: ""
+              # Additional datasources - Loki (NOT default, Prometheus is default)
+              additionalDataSources:
+              - name: Loki
+                type: loki
+                access: proxy
+                url: http://loki:3100
+                version: 1
+                isDefault: false
+                jsonData: {}
             kubeStateMetrics:
               enabled: true
               replicas: 1
@@ -301,10 +310,12 @@ spec:
             loki:
               ingress:
                 enabled: false
-            # Disable Grafana (use the one from prometheus stack instead)
+            # Disable Grafana and its datasource sidecar (datasource managed in prometheus/grafana)
             grafana:
               enabled: false
-            # Configure datasource to not be default
+              sidecar:
+                datasources:
+                  enabled: false
             promtail:
               config:
                 clients:
