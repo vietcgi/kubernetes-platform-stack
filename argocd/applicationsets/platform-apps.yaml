@@ -15,6 +15,16 @@ spec:
   # List-based generator using shared app configuration
   - list:
       elements:
+      # CNI - Must be first (foundational networking)
+      - name: cilium
+        namespace: kube-system
+        repoURL: https://helm.cilium.io
+        chart: cilium
+        version: "1.18.3"
+        syncPolicy: conservative
+        group: infrastructure
+        syncWave: -1
+
       # Observability Stack
       - name: prometheus
         namespace: monitoring
@@ -204,12 +214,112 @@ spec:
         helm:
           releaseName: '{{ .name }}'
           values: |
-            {{- if not (or (eq .name "cert-manager") (eq .name "falco") (eq .name "gatekeeper") (eq .name "sealed-secrets") (eq .name "istio") (eq .name "kyverno") (eq .name "tempo") (eq .name "velero")) }}
+            {{- if not (or (eq .name "cert-manager") (eq .name "falco") (eq .name "gatekeeper") (eq .name "sealed-secrets") (eq .name "istio") (eq .name "kyverno") (eq .name "tempo") (eq .name "velero") (eq .name "cilium")) }}
             # Default minimal replicas for laptop deployment
             replicaCount: 1
             replicas: 1
             {{- end }}
-            {{ if eq .name "cert-manager" }}
+            {{ if eq .name "cilium" }}
+            # Cilium CNI - Critical networking infrastructure
+            image:
+              repository: quay.io/cilium/cilium
+              tag: v1.18.3
+              pullPolicy: IfNotPresent
+            ipam:
+              mode: kubernetes
+            bgp:
+              enabled: true
+              announce:
+                loadbalancerIP: true
+                podCIDR: true
+            bgpControlPlane:
+              enabled: true
+              secretsNamespace:
+                create: false
+                name: kube-system
+            bgpClusterConfig:
+              enabled: false
+              nodeSelector:
+                bgp-node: "true"
+              localASN: 65000
+              exportPodCIDR: true
+              routerID: "192.168.1.1"
+            bgpNeighbors:
+              enabled: false
+            bgpAdvertisements:
+              enabled: false
+            loadBalancer:
+              l2:
+                enabled: true
+                interfaces:
+                - eth0
+              algorithm: maglev
+              mode: snat
+            kubeProxyReplacement: true
+            k8sServiceHost: "172.18.0.2"
+            k8sServicePort: 6443
+            bpf:
+              sockLB:
+                enabled: false
+              hostLB:
+                enabled: false
+              ctAny:
+                enabled: false
+              mapShare: true
+            operator:
+              replicas: 1
+            cluster:
+              name: platform
+              id: 1
+            hubble:
+              enabled: true
+              relay:
+                enabled: true
+              ui:
+                enabled: true
+                backend:
+                  service:
+                    type: ClusterIP
+            prometheus:
+              enabled: true
+              port: 9090
+              serviceMonitor:
+                enabled: false
+                namespace: monitoring
+                interval: 30s
+            networkPolicy:
+              enabled: true
+            policyEnforcementMode: "default"
+            podExecutionSpaces:
+              enabled: false
+            dnsPolicy: ClusterFirstWithHostNet
+            resources:
+              limits:
+                cpu: 1000m
+                memory: 1Gi
+              requests:
+                cpu: 100m
+                memory: 128Mi
+            nodeSelector:
+              kubernetes.io/os: linux
+            tolerations:
+              - operator: Exists
+                effect: NoSchedule
+              - operator: Exists
+                effect: NoExecute
+            hostNetwork: true
+            privileged: true
+            updateStrategy:
+              type: RollingUpdate
+              rollingUpdate:
+                maxUnavailable: 2
+            env:
+              CILIUM_ENABLE_ENVOY_CONFIG_API: "false"
+              CILIUM_ENABLE_HUBBLE_OPEN_METRICS: "true"
+              CILIUM_HUBBLE_METRICS_PORT: "9091"
+              KUBE_CLIENT_TIMEOUT: "180s"
+              KUBE_CLIENT_BACKOFF_DURATION: "180"
+            {{ else if eq .name "cert-manager" }}
             # Enable CRD installation for cert-manager
             crds:
               enabled: true
@@ -744,6 +854,7 @@ data:
   # Platform applications inventory
   platform-apps: |
     infrastructure:
+      - cilium
       - metrics-server
       - external-dns
       - kong
