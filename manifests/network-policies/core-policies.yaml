@@ -70,48 +70,6 @@ spec:
         protocol: TCP
 
 ---
-# App Namespace Core Communication
-apiVersion: cilium.io/v2
-kind: CiliumNetworkPolicy
-metadata:
-  name: allow-same-namespace
-  namespace: app
-  labels:
-    app.kubernetes.io/name: network-policies
-    app.kubernetes.io/component: core
-spec:
-  endpointSelector: {}
-  description: "Allow pod-to-pod communication within app namespace"
-  ingress:
-  - fromEndpoints:
-    - matchLabels:
-        io.kubernetes.pod.namespace: app
-    toPorts:
-    - ports:
-      - port: "8080"
-        protocol: TCP
-      - port: "8443"
-        protocol: TCP
-      - port: "9090"
-        protocol: TCP
-  egress:
-  # Allow communication within namespace
-  - toEndpoints:
-    - matchLabels:
-        io.kubernetes.pod.namespace: app
-  # Allow DNS resolution
-  - toEndpoints:
-    - matchLabels:
-        k8s-app: kube-dns
-        io.kubernetes.pod.namespace: kube-system
-    toPorts:
-    - ports:
-      - port: "53"
-        protocol: UDP
-      - port: "53"
-        protocol: TCP
-
----
 # Monitoring Namespace Core Communication
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
@@ -298,15 +256,21 @@ spec:
         io.kubernetes.pod.namespace: cert-manager
     toPorts:
     - ports:
+      - port: "443"
+        protocol: TCP  # Webhook
       - port: "6443"
         protocol: TCP
       - port: "8080"
         protocol: TCP
       - port: "9402"
-        protocol: TCP  # Webhook
+        protocol: TCP  # Metrics
   # Allow Kubernetes API server to call webhook
   - fromEntities:
     - "kube-apiserver"
+    toPorts:
+    - ports:
+      - port: "443"
+        protocol: TCP
   egress:
   # Allow communication within namespace
   - toEndpoints:
