@@ -18,6 +18,14 @@ spec:
       app.kubernetes.io/name: longhorn
   description: "Allow Longhorn manager and engine communication for volume replication"
   ingress:
+  # Kubernetes API server calling webhooks
+  - fromEntities:
+    - "kube-apiserver"
+    - "host"
+    toPorts:
+    - ports:
+      - port: "9502"
+        protocol: TCP  # Webhook service
   # Longhorn engine to engine communication
   - fromEndpoints:
     - matchLabels:
