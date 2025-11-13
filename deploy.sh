@@ -109,7 +109,7 @@ log_ok "CoreDNS patch applied (or already exists)"
 log_info "Installing Cilium CNI..."
 
 # Preload Cilium images for faster bootstrap and offline support
-CILIUM_VERSION="1.18.3"
+CILIUM_VERSION="1.18.4"
 CILIUM_IMAGE="quay.io/cilium/cilium:${CILIUM_VERSION}"
 CILIUM_OPERATOR_IMAGE="quay.io/cilium/operator-generic:${CILIUM_VERSION}"
 
