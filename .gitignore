@@ -29,3 +29,6 @@ build/
 dist/
 PHASE_4_COMPLETION.md
 IMPLEMENTATION_SUMMARY.md
+# ArgoCD OAuth Secrets
+argocd/config/*-secret.yaml
+!argocd/config/*-secret.yaml.template

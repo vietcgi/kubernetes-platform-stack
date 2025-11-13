@@ -1,0 +1,47 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cm
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: argocd-cm
+    app.kubernetes.io/part-of: argocd
+data:
+  # ArgoCD Server URL
+  url: https://argocd.demo.local
+
+  # Enable admin user
+  admin.enabled: "true"
+
+  # Application instance label key
+  application.instanceLabelKey: argocd.argoproj.io/instance
+
+  # Disable exec into pods
+  exec.enabled: "false"
+
+  # Reconciliation timeout
+  timeout.reconciliation: 180s
+  timeout.hard.reconciliation: 0s
+
+  # RBAC logging
+  server.rbac.log.enforce.enable: "false"
+
+  # Status badge
+  statusbadge.enabled: "false"
+
+  # Dex configuration for GitHub OAuth
+  dex.config: |
+    connectors:
+      - type: github
+        id: github
+        name: GitHub
+        config:
+          clientID: $dex.github.clientID
+          clientSecret: $dex.github.clientSecret
+          orgs:
+            # Replace with your GitHub organization name
+            - name: your-org-name
+              # Optional: specify teams (leave empty to allow all org members)
+              # teams:
+              #   - your-team-name

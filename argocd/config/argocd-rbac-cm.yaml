@@ -1,0 +1,35 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-rbac-cm
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: argocd-rbac-cm
+    app.kubernetes.io/part-of: argocd
+data:
+  # RBAC policy match mode
+  policy.matchMode: glob
+
+  # RBAC scopes
+  scopes: '[groups]'
+
+  # Default policy for authenticated users (read-only)
+  policy.default: role:readonly
+
+  # RBAC policies for GitHub users/teams
+  policy.csv: |
+    # Admin role for GitHub organization owners
+    g, your-org-name:admins, role:admin
+
+    # Developer role for specific teams
+    p, role:developer, applications, *, */*, allow
+    p, role:developer, repositories, get, *, allow
+    p, role:developer, repositories, sync, *, allow
+    g, your-org-name:developers, role:developer
+
+    # Read-only role for all org members
+    p, role:readonly, applications, get, */*, allow
+    p, role:readonly, repositories, get, *, allow
+    p, role:readonly, projects, get, *, allow
+    g, your-org-name:*, role:readonly
