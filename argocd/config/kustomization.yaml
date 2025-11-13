@@ -4,12 +4,6 @@ kind: Kustomization
 namespace: argocd
 
 resources:
-  - _namespace.yaml
-  - _coredns.yaml
-  - _cilium.yaml
-  - _argocd-config.yaml
-  - _infra-apps.yaml
-  - _platform-apps.yaml
   - argocd-cm.yaml
   - argocd-rbac-cm.yaml
   - argocd-cmd-params-cm.yaml

@@ -5,6 +5,7 @@ namespace: argocd
 
 resources:
   - _coredns.yaml
+  - _argocd-config.yaml
   - _network-policies.yaml
   - _platform-apps.yaml
   - _infra-apps.yaml
