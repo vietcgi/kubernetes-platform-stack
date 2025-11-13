@@ -18,26 +18,20 @@ spec:
   ingress:
   # Allow all traffic from within longhorn-system namespace
   - fromEndpoints:
-    - matchLabels:
-        io.kubernetes.pod.namespace: longhorn-system
+    - matchLabels: {}
   # Allow traffic from kube-apiserver (for webhooks)
   - fromEntities:
     - "kube-apiserver"
     - "host"
-  # Allow traffic from nodes/kubelet
-  - fromEndpoints:
-    - matchLabels:
-        component: kubelet
   egress:
   # Allow all traffic to longhorn-system namespace (including self)
   - toEndpoints:
-    - matchLabels:
-        io.kubernetes.pod.namespace: longhorn-system
+    - matchLabels: {}
   # DNS resolution
   - toEndpoints:
     - matchLabels:
         k8s-app: kube-dns
-        io.kubernetes.pod.namespace: kube-system
+        k8s:io.kubernetes.pod.namespace: kube-system
     toPorts:
     - ports:
       - port: "53"
@@ -123,7 +117,7 @@ spec:
   - toEndpoints:
     - matchLabels:
         k8s-app: kube-dns
-        io.kubernetes.pod.namespace: kube-system
+        k8s:io.kubernetes.pod.namespace: kube-system
     toPorts:
     - ports:
       - port: "53"
@@ -152,7 +146,7 @@ spec:
   - toEndpoints:
     - matchLabels:
         k8s-app: kube-dns
-        io.kubernetes.pod.namespace: kube-system
+        k8s:io.kubernetes.pod.namespace: kube-system
     toPorts:
     - ports:
       - port: "53"
@@ -272,7 +266,7 @@ spec:
   - toEndpoints:
     - matchLabels:
         k8s-app: kube-dns
-        io.kubernetes.pod.namespace: kube-system
+        k8s:io.kubernetes.pod.namespace: kube-system
     toPorts:
     - ports:
       - port: "53"
