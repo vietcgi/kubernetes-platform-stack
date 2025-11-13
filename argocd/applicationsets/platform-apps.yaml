@@ -502,6 +502,14 @@ spec:
           kind: Ingress
           name: vault
           namespace: vault
+        - group: networking.k8s.io
+          kind: Ingress
+          name: prometheus-grafana
+          namespace: monitoring
+        - group: networking.k8s.io
+          kind: Ingress
+          name: prometheus-kube-prometheus-prometheus
+          namespace: monitoring
         # Vault StatefulSet (ignore dynamic fields)
         - group: apps
           kind: StatefulSet
