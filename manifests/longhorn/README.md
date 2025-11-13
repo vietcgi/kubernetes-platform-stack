@@ -32,13 +32,15 @@ kubectl get pods -n longhorn-system -l app=longhorn-manager -w
 - [GitHub Issue #6259](https://github.com/longhorn/longhorn/issues/6259)
 - [GitHub Issue #7842](https://github.com/longhorn/longhorn/issues/7842)
 
-**Solution**: A permissive network policy has been implemented that allows all internal communication within the longhorn-system namespace. The key requirement is that pods must be able to communicate with themselves (for webhook self-calls) and with all other pods in the namespace.
-
-Network Policy Configuration:
+**Solution**: An **egress-only** network policy has been implemented to work around Cilium's hairpinning bug. The policy:
 - Uses empty `endpointSelector: {}` to match all pods in namespace
-- Allows all ingress from longhorn-system namespace (including self)
 - Allows all egress to longhorn-system namespace (including self)
-- Allows traffic from kube-apiserver and host
 - Allows DNS resolution and Kubernetes API access
+- **NO ingress rules** - this is critical to avoid the hairpinning bug
 
-**Status**: This is a known Longhorn v1.5.0+ limitation. The manual webhook deletion workaround is still required on first deployment. Network policies must allow unrestricted intra-namespace communication.
+**Why This Works**: Cilium bug #27709 causes hairpinned traffic (pod-to-service-to-same-pod) to be denied by ingress policies because return packets don't match the ingress rules. By using an egress-only policy, we:
+- Still control what Longhorn can connect to (egress security)
+- Avoid creating deny-by-default ingress rules
+- Allow hairpinned webhook traffic to work correctly
+
+**Status**: The manual webhook deletion workaround is still required on first deployment. Egress-only policy successfully works around Cilium hairpinning limitations.

@@ -14,15 +14,7 @@ metadata:
     app.kubernetes.io/component: storage
 spec:
   endpointSelector: {}
-  description: "Allow all internal Longhorn communication including webhook self-calls"
-  ingress:
-  # Allow all traffic from within longhorn-system namespace
-  - fromEndpoints:
-    - matchLabels: {}
-  # Allow traffic from kube-apiserver (for webhooks)
-  - fromEntities:
-    - "kube-apiserver"
-    - "host"
+  description: "Allow all internal Longhorn communication - egress-only policy to avoid hairpinning issues"
   egress:
   # Allow all traffic to longhorn-system namespace (including self)
   - toEndpoints:
