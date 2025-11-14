@@ -590,23 +590,6 @@ spec:
       destination:
         server: https://kubernetes.default.svc
         namespace: '{{ .namespace }}'
-      {{- if eq .name "cilium" }}
-      ignoreDifferences:
-        - group: apps
-          kind: DaemonSet
-          name: cilium
-          jsonPointers:
-            - /spec/template/spec/containers/0/env
-      {{- end }}
-      {{- if eq .name "coredns" }}
-      ignoreDifferences:
-        - group: apps
-          kind: Deployment
-          name: coredns
-          jsonPointers:
-            - /spec/replicas
-            - /spec/template/spec/containers/0/image
-      {{- end }}
       syncPolicy:
         automated:
           selfHeal: true
