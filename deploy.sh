@@ -109,6 +109,15 @@ helm repo update coredns
 # Helm requires both the label AND annotations to exist for proper ownership
 log_info "Checking for existing CoreDNS resources..."
 
+# Clean up any stuck Helm release first
+if helm list -n kube-system 2>/dev/null | grep -q "coredns"; then
+    helm_status=$(helm list -n kube-system -o json 2>/dev/null | grep -o '"status":"[^"]*"' | head -1 | cut -d'"' -f4)
+    if [ "$helm_status" = "pending-install" ] || [ "$helm_status" = "pending-upgrade" ]; then
+        log_warn "Found stuck Helm release in $helm_status state, deleting..."
+        helm delete coredns -n kube-system 2>/dev/null || true
+    fi
+fi
+
 # Delete ConfigMap if it lacks Helm ownership annotation
 if kubectl get configmap coredns -n kube-system &>/dev/null; then
     helm_release=$(kubectl get configmap coredns -n kube-system -o jsonpath='{.metadata.annotations.meta\.helm\.sh/release-name}' 2>/dev/null)
@@ -134,6 +143,8 @@ if kubectl get deployment coredns -n kube-system &>/dev/null; then
     if [ "$helm_release" != "coredns" ]; then
         log_warn "CoreDNS Deployment exists without Helm ownership, deleting..."
         kubectl delete deployment coredns -n kube-system 2>/dev/null || true
+        # Wait for Deployment to be fully deleted before Helm install
+        sleep 3
     fi
 fi
 
