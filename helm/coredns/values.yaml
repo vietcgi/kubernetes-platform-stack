@@ -1,5 +1,6 @@
 # CoreDNS Helm Chart Values
 # Official chart from https://coredns.github.io/helm
+# Must match ApplicationSet values for ArgoCD compatibility
 
 # Service configuration
 service:
@@ -49,7 +50,12 @@ servers:
 serviceMonitor:
   enabled: false
 
-# Pod disruption budget
+# Pod disruption budget - use valid Kubernetes format
 podDisruptionBudget:
-  enabled: true
   minAvailable: 1
+
+# Ensure pod labels match service selector for proper endpoint discovery
+podLabels:
+  app.kubernetes.io/instance: coredns
+  app.kubernetes.io/name: coredns
+  k8s-app: coredns
