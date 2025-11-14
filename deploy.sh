@@ -127,6 +127,15 @@ if kubectl get configmap coredns -n kube-system &>/dev/null; then
     fi
 fi
 
+# Delete Service if it lacks Helm ownership metadata (Kind creates default Service)
+if kubectl get service kube-dns -n kube-system &>/dev/null; then
+    helm_release=$(kubectl get service kube-dns -n kube-system -o jsonpath='{.metadata.annotations.meta\.helm\.sh/release-name}' 2>/dev/null)
+    if [ "$helm_release" != "coredns" ]; then
+        log_warn "CoreDNS Service exists without Helm ownership, deleting..."
+        kubectl delete service kube-dns -n kube-system 2>/dev/null || true
+    fi
+fi
+
 # Delete Deployment if it exists and lacks Helm ownership metadata
 if kubectl get deployment coredns -n kube-system &>/dev/null; then
     helm_release=$(kubectl get deployment coredns -n kube-system -o jsonpath='{.metadata.annotations.meta\.helm\.sh/release-name}' 2>/dev/null)
