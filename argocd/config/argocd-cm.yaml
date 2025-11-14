@@ -9,7 +9,7 @@ metadata:
     app.kubernetes.io/part-of: argocd
 data:
   # ArgoCD Server URL
-  url: https://argocd.demo.local/
+  url: http://argocd.demo.local/
 
   # Enable admin user
   admin.enabled: "true"
