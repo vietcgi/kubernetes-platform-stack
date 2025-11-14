@@ -5,6 +5,7 @@
 
 # DNS Resolution Policy (kube-system)
 # Required for all pods to resolve DNS names
+# Matches CoreDNS pods by label - supports both old (kube-dns) and new (coredns) deployments
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
@@ -16,7 +17,7 @@ metadata:
 spec:
   endpointSelector:
     matchLabels:
-      k8s-app: kube-dns
+      k8s-app: coredns
   description: "Allow DNS resolution from all pods to CoreDNS"
   ingress:
   - toPorts:
@@ -60,7 +61,7 @@ spec:
   # Allow DNS resolution
   - toEndpoints:
     - matchLabels:
-        k8s-app: kube-dns
+        k8s-app: coredns
         io.kubernetes.pod.namespace: kube-system
     toPorts:
     - ports:
@@ -106,7 +107,7 @@ spec:
   # Allow DNS resolution
   - toEndpoints:
     - matchLabels:
-        k8s-app: kube-dns
+        k8s-app: coredns
         io.kubernetes.pod.namespace: kube-system
     toPorts:
     - ports:
@@ -168,7 +169,7 @@ spec:
   # Allow DNS resolution
   - toEndpoints:
     - matchLabels:
-        k8s-app: kube-dns
+        k8s-app: coredns
         io.kubernetes.pod.namespace: kube-system
     toPorts:
     - ports:
@@ -215,7 +216,7 @@ spec:
   # Allow DNS resolution
   - toEndpoints:
     - matchLabels:
-        k8s-app: kube-dns
+        k8s-app: coredns
         io.kubernetes.pod.namespace: kube-system
     toPorts:
     - ports:
@@ -279,7 +280,7 @@ spec:
   # Allow DNS resolution
   - toEndpoints:
     - matchLabels:
-        k8s-app: kube-dns
+        k8s-app: coredns
         io.kubernetes.pod.namespace: kube-system
     toPorts:
     - ports:

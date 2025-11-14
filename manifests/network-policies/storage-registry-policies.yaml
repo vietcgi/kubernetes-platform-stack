@@ -22,7 +22,7 @@ spec:
   # DNS resolution
   - toEndpoints:
     - matchLabels:
-        k8s-app: kube-dns
+        k8s-app: coredns
         k8s:io.kubernetes.pod.namespace: kube-system
     toPorts:
     - ports:
@@ -108,7 +108,7 @@ spec:
   # DNS resolution
   - toEndpoints:
     - matchLabels:
-        k8s-app: kube-dns
+        k8s-app: coredns
         k8s:io.kubernetes.pod.namespace: kube-system
     toPorts:
     - ports:
@@ -137,7 +137,7 @@ spec:
   # DNS resolution (required for all external access)
   - toEndpoints:
     - matchLabels:
-        k8s-app: kube-dns
+        k8s-app: coredns
         k8s:io.kubernetes.pod.namespace: kube-system
     toPorts:
     - ports:
@@ -257,7 +257,7 @@ spec:
   # DNS resolution
   - toEndpoints:
     - matchLabels:
-        k8s-app: kube-dns
+        k8s-app: coredns
         k8s:io.kubernetes.pod.namespace: kube-system
     toPorts:
     - ports:

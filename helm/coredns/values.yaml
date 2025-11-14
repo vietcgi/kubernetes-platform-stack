@@ -54,9 +54,11 @@ serviceMonitor:
 podDisruptionBudget:
   minAvailable: 1
 
-# Ensure pod labels match service selector for proper endpoint discovery
-# Include k8s-app: kube-dns for backward compatibility with network policies
+# Pod labels for service discovery and network policies
+# - k8s-app: coredns - matches service selector and Helm chart defaults
+# - kube-dns: "true" - for backward compatibility with network policies expecting this label
 podLabels:
   app.kubernetes.io/instance: coredns
   app.kubernetes.io/name: coredns
-  k8s-app: kube-dns
+  k8s-app: coredns
+  kube-dns: "true"
