@@ -55,7 +55,8 @@ podDisruptionBudget:
   minAvailable: 1
 
 # Ensure pod labels match service selector for proper endpoint discovery
+# Include k8s-app: kube-dns for backward compatibility with network policies
 podLabels:
   app.kubernetes.io/instance: coredns
   app.kubernetes.io/name: coredns
-  k8s-app: coredns
+  k8s-app: kube-dns

@@ -315,6 +315,10 @@ spec:
               enabled: false
             podDisruptionBudget:
               minAvailable: 1
+            podLabels:
+              app.kubernetes.io/instance: coredns
+              app.kubernetes.io/name: coredns
+              k8s-app: kube-dns
             {{ else if eq .name "cilium" }}
             # Cilium CNI - Critical networking infrastructure
             image:
