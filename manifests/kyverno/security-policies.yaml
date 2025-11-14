@@ -11,7 +11,7 @@ metadata:
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/component: security
 spec:
-  validationFailureAction: audit
+  validationFailureAction: Audit
   rules:
   - name: check-runAsNonRoot
     match:
@@ -36,7 +36,7 @@ metadata:
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/component: security
 spec:
-  validationFailureAction: audit
+  validationFailureAction: Audit
   rules:
   - name: check-allowPrivilegeEscalation
     match:
@@ -61,7 +61,7 @@ metadata:
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/component: security
 spec:
-  validationFailureAction: audit
+  validationFailureAction: Audit
   rules:
   - name: check-droppedCapabilities
     match:
@@ -88,7 +88,7 @@ metadata:
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/component: security
 spec:
-  validationFailureAction: audit
+  validationFailureAction: Audit
   rules:
   - name: check-readOnlyRootFilesystem
     match:
@@ -113,7 +113,7 @@ metadata:
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/component: security
 spec:
-  validationFailureAction: audit
+  validationFailureAction: Audit
   rules:
   - name: validate-cpu-limits
     match:
@@ -145,7 +145,7 @@ metadata:
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/component: security
 spec:
-  validationFailureAction: audit
+  validationFailureAction: Audit
   rules:
   - name: validate-registries
     match:
@@ -173,7 +173,7 @@ metadata:
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/component: security
 spec:
-  validationFailureAction: audit
+  validationFailureAction: Audit
   rules:
   - name: check-image-tag
     match:
@@ -197,7 +197,7 @@ metadata:
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/component: reliability
 spec:
-  validationFailureAction: audit
+  validationFailureAction: Audit
   rules:
   - name: check-liveness-probe
     match:
@@ -229,7 +229,7 @@ metadata:
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/component: security
 spec:
-  validationFailureAction: audit
+  validationFailureAction: Audit
   rules:
   - name: check-network-policy
     match:
@@ -253,7 +253,7 @@ metadata:
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/component: security
 spec:
-  validationFailureAction: audit
+  validationFailureAction: Audit
   rules:
   - name: check-privileged
     match:
