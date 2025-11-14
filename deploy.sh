@@ -106,23 +106,34 @@ helm repo update coredns
 
 # Clean up existing CoreDNS resources without proper Helm ownership metadata
 # This can occur on first deployment before Helm can adopt the resources
+# Helm requires both the label AND annotations to exist for proper ownership
 log_info "Checking for existing CoreDNS resources..."
 
-# Delete ConfigMap if it lacks Helm ownership
+# Delete ConfigMap if it lacks Helm ownership annotation
 if kubectl get configmap coredns -n kube-system &>/dev/null; then
-    helm_owner=$(kubectl get configmap coredns -n kube-system -o jsonpath='{.metadata.labels.app\.kubernetes\.io/managed-by}' 2>/dev/null)
-    if [ "$helm_owner" != "Helm" ]; then
+    helm_release=$(kubectl get configmap coredns -n kube-system -o jsonpath='{.metadata.annotations.meta\.helm\.sh/release-name}' 2>/dev/null)
+    if [ "$helm_release" != "coredns" ]; then
         log_warn "CoreDNS ConfigMap exists without Helm ownership, deleting..."
         kubectl delete configmap coredns -n kube-system 2>/dev/null || true
     fi
 fi
 
-# Delete Service if it lacks Helm ownership
+# Delete Service if it lacks Helm ownership annotation
 if kubectl get service kube-dns -n kube-system &>/dev/null; then
-    helm_owner=$(kubectl get service kube-dns -n kube-system -o jsonpath='{.metadata.labels.app\.kubernetes\.io/managed-by}' 2>/dev/null)
-    if [ "$helm_owner" != "Helm" ]; then
+    helm_release=$(kubectl get service kube-dns -n kube-system -o jsonpath='{.metadata.annotations.meta\.helm\.sh/release-name}' 2>/dev/null)
+    if [ "$helm_release" != "coredns" ]; then
         log_warn "CoreDNS Service exists without Helm ownership, deleting..."
         kubectl delete service kube-dns -n kube-system 2>/dev/null || true
+    fi
+fi
+
+# Delete Deployment if it exists and is not managed by Helm
+# (Kind creates a default Deployment that needs to be replaced)
+if kubectl get deployment coredns -n kube-system &>/dev/null; then
+    helm_release=$(kubectl get deployment coredns -n kube-system -o jsonpath='{.metadata.annotations.meta\.helm\.sh/release-name}' 2>/dev/null)
+    if [ "$helm_release" != "coredns" ]; then
+        log_warn "CoreDNS Deployment exists without Helm ownership, deleting..."
+        kubectl delete deployment coredns -n kube-system 2>/dev/null || true
     fi
 fi
 
