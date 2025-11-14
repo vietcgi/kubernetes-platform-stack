@@ -104,6 +104,16 @@ log_info "Installing CoreDNS..."
 helm repo add coredns https://coredns.github.io/helm
 helm repo update coredns
 
+# Clean up any existing CoreDNS ConfigMap without proper Helm ownership metadata
+# This can occur on first deployment before ArgoCD manages the release
+if kubectl get configmap coredns -n kube-system &>/dev/null; then
+    release_name=$(kubectl get configmap coredns -n kube-system -o jsonpath='{.metadata.annotations.meta\.helm\.sh/release-name}' 2>/dev/null)
+    if [ -z "$release_name" ]; then
+        log_warn "CoreDNS ConfigMap exists without Helm ownership metadata, cleaning up..."
+        kubectl delete configmap coredns -n kube-system --ignore-not-found
+    fi
+fi
+
 helm upgrade --install coredns coredns/coredns \
   --namespace kube-system \
   --values "$SCRIPT_DIR/helm/coredns/values.yaml" \
