@@ -25,6 +25,16 @@ spec:
         group: infrastructure
         syncWave: -1
 
+      # DNS - Critical for cluster resolution
+      - name: coredns
+        namespace: kube-system
+        repoURL: https://coredns.github.io/helm
+        chart: coredns
+        version: "1.45.0"
+        syncPolicy: conservative
+        group: infrastructure
+        syncWave: -1
+
       # Observability Stack
       - name: prometheus
         namespace: monitoring
@@ -587,6 +597,15 @@ spec:
           name: cilium
           jsonPointers:
             - /spec/template/spec/containers/0/env
+      {{- end }}
+      {{- if eq .name "coredns" }}
+      ignoreDifferences:
+        - group: apps
+          kind: Deployment
+          name: coredns
+          jsonPointers:
+            - /spec/replicas
+            - /spec/template/spec/containers/0/image
       {{- end }}
       syncPolicy:
         automated:

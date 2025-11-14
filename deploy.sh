@@ -100,11 +100,18 @@ echo "PHASE 1: Network Prerequisites (CoreDNS & Cilium)"
 echo "=============================================="
 echo ""
 
-log_info "Configuring CoreDNS..."
-# Apply CoreDNS configuration patch to the KIND-created CoreDNS Deployment
-# Do NOT use Helm - this would conflict with ArgoCD management
-kubectl apply -f "$SCRIPT_DIR/helm/coredns/templates/deployment-patch.yaml" 2>/dev/null || true
-log_ok "CoreDNS patch applied (or already exists)"
+log_info "Installing CoreDNS..."
+helm repo add coredns https://coredns.github.io/helm
+helm repo update coredns
+
+helm upgrade --install coredns coredns/coredns \
+  --namespace kube-system \
+  --values "$SCRIPT_DIR/helm/coredns/values.yaml" \
+  --version 1.45.0 \
+  --wait
+
+log_ok "CoreDNS installed"
+echo ""
 
 log_info "Installing Cilium CNI..."
 
