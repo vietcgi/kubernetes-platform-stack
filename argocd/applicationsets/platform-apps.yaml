@@ -580,6 +580,14 @@ spec:
       destination:
         server: https://kubernetes.default.svc
         namespace: '{{ .namespace }}'
+      {{- if eq .name "cilium" }}
+      ignoreDifferences:
+        - group: apps
+          kind: DaemonSet
+          name: cilium
+          jsonPointers:
+            - /spec/template/spec/containers/0/env
+      {{- end }}
       syncPolicy:
         automated:
           selfHeal: true
