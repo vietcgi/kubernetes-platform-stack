@@ -104,30 +104,25 @@ log_info "Installing CoreDNS..."
 helm repo add coredns https://coredns.github.io/helm
 helm repo update coredns
 
-# Clean up existing CoreDNS resources without proper Helm ownership metadata
-# This can occur on first deployment before Helm can adopt the resources
-# Helm requires both the label AND annotations to exist for proper ownership
-log_info "Checking for existing CoreDNS resources..."
-
-# Clean up any stuck Helm release first
-if helm list -n kube-system 2>/dev/null | grep -q "coredns"; then
-    helm_status=$(helm list -n kube-system -o json 2>/dev/null | grep -o '"status":"[^"]*"' | head -1 | cut -d'"' -f4)
-    if [ "$helm_status" = "pending-install" ] || [ "$helm_status" = "pending-upgrade" ]; then
-        log_warn "Found stuck Helm release in $helm_status state, deleting..."
-        helm delete coredns -n kube-system --wait 2>/dev/null || true
-        sleep 2
-    fi
-fi
-
-# Delete Deployment if it exists and is not managed by Helm
-# (Kind creates a default Deployment that needs to be replaced)
-# Only delete the Deployment - let Helm handle Service and ConfigMap
+# Only perform cleanup if CoreDNS already exists (e.g., from Kind bootstrap)
 if kubectl get deployment coredns -n kube-system &>/dev/null; then
+    log_info "Existing CoreDNS Deployment detected, cleaning up before Helm install..."
+
+    # Clean up any stuck Helm release first
+    if helm list -n kube-system 2>/dev/null | grep -q "coredns"; then
+        helm_status=$(helm list -n kube-system -o json 2>/dev/null | grep -o '"status":"[^"]*"' | head -1 | cut -d'"' -f4)
+        if [ "$helm_status" = "pending-install" ] || [ "$helm_status" = "pending-upgrade" ]; then
+            log_warn "Found stuck Helm release in $helm_status state, deleting..."
+            helm delete coredns -n kube-system --wait 2>/dev/null || true
+            sleep 2
+        fi
+    fi
+
+    # Delete unmanaged Deployment (replace it with Helm-managed version)
     helm_release=$(kubectl get deployment coredns -n kube-system -o jsonpath='{.metadata.annotations.meta\.helm\.sh/release-name}' 2>/dev/null)
     if [ "$helm_release" != "coredns" ]; then
-        log_warn "CoreDNS Deployment exists without Helm ownership, deleting..."
+        log_warn "Replacing unmanaged CoreDNS Deployment with Helm version..."
         kubectl delete deployment coredns -n kube-system --wait=false 2>/dev/null || true
-        # Wait for Deployment to be fully deleted before Helm install
         sleep 2
     fi
 fi
