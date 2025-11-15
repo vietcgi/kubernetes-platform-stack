@@ -20,6 +20,57 @@ log_ok() { echo -e "${GREEN}[✓]${NC} $1"; }
 log_warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
 log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 
+# Configure Docker authentication on KIND cluster nodes
+# Allows authenticated pulls from Docker Hub with higher rate limit (200/6h vs 100/6h)
+setup_docker_auth() {
+    local docker_username="${DOCKER_USERNAME:-}"
+    local docker_password="${DOCKER_PASSWORD:-}"
+
+    # Skip if credentials not provided
+    if [ -z "$docker_username" ] || [ -z "$docker_password" ]; then
+        log_info "Docker authentication skipped (DOCKER_USERNAME or DOCKER_PASSWORD not set)"
+        return 0
+    fi
+
+    log_info "Configuring Docker authentication on KIND nodes..."
+
+    # Get list of KIND nodes
+    local nodes=$(docker ps --filter "label=io.x-k8s.kind.cluster=$CLUSTER_NAME" --format "{{.Names}}" 2>/dev/null)
+
+    if [ -z "$nodes" ]; then
+        log_warn "No KIND nodes found for cluster '$CLUSTER_NAME'"
+        return 0
+    fi
+
+    # Configure Docker auth on each node
+    for node in $nodes; do
+        log_info "Setting up Docker auth on node: $node"
+
+        # Create .docker/config.json with auth token on the node
+        # The auth value is base64(username:password)
+        local auth_token=$(echo -n "$docker_username:$docker_password" | base64 | tr -d '\n')
+
+        docker exec "$node" sh -c "mkdir -p /root/.docker" 2>/dev/null
+        docker exec "$node" sh -c "cat > /root/.docker/config.json <<'DOCKER_CONFIG'
+{
+  \"auths\": {
+    \"https://index.docker.io/v1/\": {
+      \"auth\": \"$auth_token\"
+    }
+  }
+}
+DOCKER_CONFIG" 2>/dev/null
+
+        if [ $? -eq 0 ]; then
+            log_ok "Docker auth configured on $node"
+        else
+            log_warn "Failed to configure Docker auth on $node (may not impact deployment)"
+        fi
+    done
+
+    log_ok "Docker authentication setup complete"
+}
+
 # Retry function with exponential backoff for handling rate limits (429 errors)
 # Usage: retry_with_backoff <max_attempts> <command>
 retry_with_backoff() {
@@ -433,6 +484,9 @@ else
     kind create cluster --config "$SCRIPT_DIR/kind-config.yaml" --name "$CLUSTER_NAME"
     sleep 5
 fi
+
+# Configure Docker authentication on cluster nodes to increase Docker Hub rate limit
+setup_docker_auth
 
 echo ""
 
