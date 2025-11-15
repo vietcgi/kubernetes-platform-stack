@@ -1,0 +1,87 @@
+# Cilium Network Policy for Vault
+# Allows pod-to-pod communication within vault namespace
+# and allows external-secrets namespace to access Vault API
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: allow-same-namespace
+  namespace: vault
+spec:
+  description: "Allow pod-to-pod communication within vault namespace and external-secrets access"
+  endpointSelector: {}
+
+  ingress:
+  # Allow same namespace
+  - fromEndpoints:
+    - matchLabels:
+        io.kubernetes.pod.namespace: vault
+    toPorts:
+    - ports:
+      - port: "8200"
+        protocol: TCP
+      - port: "8201"
+        protocol: TCP
+  # Allow External Secrets to access Vault API
+  - fromEndpoints:
+    - matchLabels:
+        io.kubernetes.pod.namespace: external-secrets
+    toPorts:
+    - ports:
+      - port: "8200"
+        protocol: TCP
+
+  egress:
+  # Allow egress within vault namespace
+  - toEndpoints:
+    - matchLabels:
+        io.kubernetes.pod.namespace: vault
+  # Allow DNS
+  - toEndpoints:
+    - matchLabels:
+        io.kubernetes.pod.namespace: kube-system
+        k8s-app: coredns
+    toPorts:
+    - ports:
+      - port: "53"
+        protocol: UDP
+      - port: "53"
+        protocol: TCP
+  # Allow Kubernetes API server
+  - toEntities:
+    - kube-apiserver
+
+---
+# Cilium Network Policy for External Secrets
+# Allows external-secrets to access Vault and other required services
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: allow-vault-access
+  namespace: external-secrets
+spec:
+  description: "Allow external-secrets to access Vault and required services"
+  endpointSelector: {}
+
+  egress:
+  # Allow access to Vault in vault namespace
+  - toEndpoints:
+    - matchLabels:
+        io.kubernetes.pod.namespace: vault
+    toPorts:
+    - ports:
+      - port: "8200"
+        protocol: TCP
+  # Allow DNS
+  - toEndpoints:
+    - matchLabels:
+        io.kubernetes.pod.namespace: kube-system
+        k8s-app: coredns
+    toPorts:
+    - ports:
+      - port: "53"
+        protocol: UDP
+      - port: "53"
+        protocol: TCP
+  # Allow Kubernetes API server
+  - toEntities:
+    - kube-apiserver

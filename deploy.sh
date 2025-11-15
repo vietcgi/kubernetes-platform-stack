@@ -20,6 +20,96 @@ log_ok() { echo -e "${GREEN}[✓]${NC} $1"; }
 log_warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
 log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 
+# Initialize and unseal Vault
+setup_vault_init() {
+    log_info "Initializing Vault..."
+
+    # Wait for Vault pod to be running
+    log_info "Waiting for Vault pod to be running..."
+    for i in {1..60}; do
+        if kubectl get pod -n vault vault-0 2>/dev/null | grep -q "Running"; then
+            log_ok "Vault pod is running"
+            break
+        fi
+        if [ $i -eq 60 ]; then
+            log_error "Vault pod failed to start"
+            return 1
+        fi
+        sleep 2
+    done
+
+    # Check if already initialized
+    VAULT_INIT_STATUS=$(kubectl exec -n vault vault-0 -- vault status -format=json 2>/dev/null | jq -r '.initialized' 2>/dev/null)
+
+    if [ "$VAULT_INIT_STATUS" = "true" ]; then
+        log_ok "Vault is already initialized"
+
+        # Check if sealed and unseal if needed
+        VAULT_SEAL_STATUS=$(kubectl exec -n vault vault-0 -- vault status -format=json 2>/dev/null | jq -r '.sealed' 2>/dev/null)
+        if [ "$VAULT_SEAL_STATUS" = "true" ]; then
+            log_warn "Vault is sealed, attempting to unseal..."
+            # Try using root token from existing secret
+            VAULT_TOKEN=$(kubectl get secret -n vault vault-unseal-keys -o jsonpath='{.data.root_token}' 2>/dev/null | base64 -d 2>/dev/null)
+            if [ -n "$VAULT_TOKEN" ]; then
+                UNSEAL_KEY=$(kubectl get secret -n vault vault-unseal-keys -o jsonpath='{.data.unseal_key}' 2>/dev/null | base64 -d 2>/dev/null)
+                if [ -n "$UNSEAL_KEY" ]; then
+                    kubectl exec -n vault vault-0 -- vault operator unseal "$UNSEAL_KEY" > /dev/null 2>&1
+                    log_ok "Vault unsealed"
+                fi
+            fi
+        else
+            log_ok "Vault is already unsealed"
+        fi
+        return 0
+    fi
+
+    # Initialize Vault with single key share and threshold
+    log_info "Initializing Vault (this runs once)..."
+    INIT_RESPONSE=$(kubectl exec -n vault vault-0 -- vault operator init -key-shares=1 -key-threshold=1 -format=json 2>/dev/null)
+
+    if [ -z "$INIT_RESPONSE" ]; then
+        log_error "Failed to initialize Vault"
+        return 1
+    fi
+
+    # Extract root token and unseal key
+    ROOT_TOKEN=$(echo "$INIT_RESPONSE" | jq -r '.root_token' 2>/dev/null)
+    UNSEAL_KEY=$(echo "$INIT_RESPONSE" | jq -r '.unseal_keys_b64[0]' 2>/dev/null)
+
+    if [ -z "$ROOT_TOKEN" ] || [ -z "$UNSEAL_KEY" ]; then
+        log_error "Failed to extract Vault credentials from init response"
+        return 1
+    fi
+
+    log_ok "Vault initialized with root token and unseal key"
+
+    # Unseal Vault
+    log_info "Unsealing Vault..."
+    kubectl exec -n vault vault-0 -- vault operator unseal "$UNSEAL_KEY" > /dev/null 2>&1
+    if [ $? -eq 0 ]; then
+        log_ok "Vault unsealed successfully"
+    else
+        log_error "Failed to unseal Vault"
+        return 1
+    fi
+
+    # Create vault-unseal-keys secret for External Secrets setup
+    log_info "Creating vault-unseal-keys secret..."
+    kubectl create secret generic vault-unseal-keys \
+        --from-literal=root_token="$ROOT_TOKEN" \
+        --from-literal=token="$ROOT_TOKEN" \
+        --from-literal=unseal_key="$UNSEAL_KEY" \
+        -n vault --dry-run=client -o yaml | kubectl apply -f - > /dev/null 2>&1
+
+    if [ $? -eq 0 ]; then
+        log_ok "vault-unseal-keys secret created"
+    else
+        log_warn "Failed to create vault-unseal-keys secret (may already exist)"
+    fi
+
+    log_ok "Vault initialization complete"
+}
+
 # Setup Vault Kubernetes auth for External Secrets
 setup_vault_auth() {
     log_info "Configuring Vault Kubernetes authentication..."
@@ -28,6 +118,13 @@ setup_vault_auth() {
     log_info "Waiting for vault-unseal-keys secret to be created..."
     VAULT_TOKEN=""
     for i in {1..30}; do
+        # Check if secret exists
+        if ! kubectl get secret -n vault vault-unseal-keys 2>/dev/null | grep -q "vault-unseal-keys"; then
+            echo -ne "\rAttempt $i/30: Waiting for vault-unseal-keys secret..."
+            sleep 1
+            continue
+        fi
+
         # Try to get root token from vault-unseal-keys secret
         VAULT_TOKEN=$(kubectl get secret -n vault vault-unseal-keys -o jsonpath='{.data.token}' 2>/dev/null | base64 -d 2>/dev/null)
 
@@ -38,13 +135,12 @@ setup_vault_auth() {
 
         # If found, break
         if [ -n "$VAULT_TOKEN" ]; then
+            echo ""
             log_ok "Vault root token retrieved"
             break
         fi
 
-        if [ $i -lt 30 ]; then
-            sleep 1
-        fi
+        sleep 1
     done
 
     # If still empty, try from environment inside Vault pod
@@ -108,7 +204,8 @@ EOF
         bound_service_account_names=external-secrets \
         bound_service_account_namespaces=external-secrets \
         policies=external-secrets \
-        ttl=24h" > /dev/null 2>&1
+        ttl=24h \
+        audience=vault" > /dev/null 2>&1
     if [ $? -eq 0 ]; then
         log_ok "Kubernetes auth role created"
     else
@@ -124,51 +221,51 @@ setup_vault_credentials() {
 
     log_info "Setting up demo credentials in Vault..."
 
-    # Wait for Vault to be ready
-    log_info "Waiting for Vault to be available..."
-    for i in {1..60}; do
-        if kubectl get pod -n vault vault-0 2>/dev/null | grep -q "Running"; then
-            log_ok "Vault is running"
+    # Get root token from secret
+    VAULT_TOKEN=$(kubectl get secret -n vault vault-unseal-keys -o jsonpath='{.data.root_token}' 2>/dev/null | base64 -d 2>/dev/null)
+    if [ -z "$VAULT_TOKEN" ]; then
+        log_error "Cannot retrieve Vault root token for credential setup"
+        return 1
+    fi
+
+    # Wait for Vault to be accessible
+    log_info "Waiting for Vault to be accessible..."
+    for i in {1..30}; do
+        if kubectl exec -n vault vault-0 -- env VAULT_TOKEN="$VAULT_TOKEN" vault status > /dev/null 2>&1; then
+            log_ok "Vault is accessible"
             break
         fi
-        if [ $i -eq 60 ]; then
-            log_error "Vault pod not running, cannot setup credentials"
+        if [ $i -eq 30 ]; then
+            log_error "Vault is not accessible after 30 attempts"
             return 1
         fi
         sleep 2
     done
 
-    # Unseal Vault if needed
-    log_info "Checking Vault seal status..."
-    VAULT_SEAL_STATUS=$(kubectl exec -n vault vault-0 -- vault status -format=json 2>/dev/null | grep -o '"sealed":[^,}]*' | cut -d':' -f2)
-
-    if [ "$VAULT_SEAL_STATUS" = "true" ]; then
-        log_info "Vault is sealed, attempting to unseal..."
-        VAULT_TOKEN=$(kubectl get secret -n vault vault-unseal-keys -o jsonpath='{.data.token}' 2>/dev/null | base64 -d 2>/dev/null)
-        if [ -n "$VAULT_TOKEN" ]; then
-            kubectl exec -n vault vault-0 -- sh -c "VAULT_TOKEN='$VAULT_TOKEN' vault operator unseal" > /dev/null 2>&1 || log_warn "Unsealing failed"
+    # Enable KV v2 secrets engine if not already enabled
+    log_info "Ensuring KV v2 secrets engine is enabled..."
+    if kubectl exec -n vault vault-0 -- env VAULT_TOKEN="$VAULT_TOKEN" vault secrets list -format=json 2>/dev/null | grep -q '"secret/"'; then
+        log_ok "KV v2 secrets engine already enabled"
+    else
+        log_info "Enabling KV v2 secrets engine..."
+        if kubectl exec -n vault vault-0 -- env VAULT_TOKEN="$VAULT_TOKEN" vault secrets enable -path=secret -version=2 kv > /dev/null 2>&1; then
+            log_ok "KV v2 secrets engine enabled"
         else
-            log_warn "No unseal token found, Vault may already be unsealed"
+            log_warn "KV v2 secrets engine may already be enabled"
         fi
-    fi
-
-    # Verify Vault is actually unsealed and accessible
-    if ! kubectl exec -n vault vault-0 -- vault status > /dev/null 2>&1; then
-        log_error "Vault is not accessible after unseal attempt"
-        return 1
     fi
 
     log_info "Storing demo credentials in Vault..."
 
-    # Store credentials using a more secure method (password via stdin, not visible in process args)
-    # This avoids exposing the password in process listings or logs
+    # Store credentials using stdin to avoid exposing password in process args
+    # This securely passes the password without it appearing in process listings
     local services=("argocd" "grafana" "postgres" "harbor")
     local failed=0
 
     for service in "${services[@]}"; do
-        # Pass password via stdin to avoid it appearing in process arguments
+        # Pass password via stdin and use VAULT_TOKEN environment variable
         if echo "$password" | kubectl exec -n vault vault-0 -- sh -c \
-            "read PASS && VAULT_TOKEN=\$(cat /vault/file/root_token 2>/dev/null) vault kv put secret/demo/$service password=\$PASS" > /dev/null 2>&1; then
+            "read PASS && env VAULT_TOKEN='$VAULT_TOKEN' vault kv put secret/demo/$service password=\$PASS" > /dev/null 2>&1; then
             log_ok "Stored credential for $service"
         else
             log_error "Failed to store credential for $service"
@@ -496,7 +593,13 @@ echo ""
 log_info "Waiting for Vault application to be deployed..."
 sleep 10  # Give ArgoCD time to sync Vault
 
-# External Secrets manifests are applied by ArgoCD (external-secrets-config Application)
+# Initialize and unseal Vault (must run first)
+setup_vault_init
+if [ $? -ne 0 ]; then
+    log_error "Vault initialization failed"
+    exit 1
+fi
+
 # Setup Vault Kubernetes auth (must run before External Secrets accesses Vault)
 setup_vault_auth
 

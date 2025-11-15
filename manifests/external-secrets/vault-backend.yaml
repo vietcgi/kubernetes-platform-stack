@@ -4,7 +4,8 @@
 # NO cleartext passwords anywhere in git or code
 
 ---
-# SecretStore: Tells External Secrets how to connect to Vault
+# ClusterSecretStore: Tells External Secrets how to connect to Vault
+# Uses Kubernetes Service Account authentication for secure, automatic token management
 apiVersion: external-secrets.io/v1beta1
 kind: ClusterSecretStore
 metadata:
@@ -14,7 +15,11 @@ spec:
     vault:
       server: "http://vault.vault.svc.cluster.local:8200"
       path: "secret/data"
+      version: "v2"
       auth:
         kubernetes:
           mountPath: "kubernetes"
           role: "external-secrets"
+          serviceAccountRef:
+            name: external-secrets
+            namespace: external-secrets
