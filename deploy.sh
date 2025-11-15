@@ -39,16 +39,16 @@ setup_vault_init() {
         sleep 2
     done
 
-    # Wait for pod to be fully accessible (can kubectl exec)
-    # This can take longer as Vault needs to start up its server
-    log_info "Waiting for Vault pod to be accessible (this may take 1-2 minutes)..."
-    for i in {1..120}; do
-        if kubectl exec -n vault vault-0 -- vault status > /dev/null 2>&1; then
-            log_ok "Vault pod is accessible"
+    # Wait for pod to be fully accessible
+    # Use HTTP healthcheck instead of vault status (which requires initialization)
+    log_info "Waiting for Vault HTTP server to be accessible..."
+    for i in {1..60}; do
+        if kubectl exec -n vault vault-0 -- curl -s http://localhost:8200/v1/sys/health > /dev/null 2>&1; then
+            log_ok "Vault HTTP server is accessible"
             break
         fi
-        if [ $i -eq 120 ]; then
-            log_error "Vault pod is not accessible after 2 minutes"
+        if [ $i -eq 60 ]; then
+            log_error "Vault HTTP server is not accessible"
             log_error "Checking pod logs for errors..."
             kubectl logs -n vault vault-0 | tail -20
             return 1
