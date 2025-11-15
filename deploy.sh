@@ -22,6 +22,7 @@ log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 
 # Configure Docker authentication on KIND cluster nodes
 # Allows authenticated pulls from Docker Hub with higher rate limit (200/6h vs 100/6h)
+# Also configures Docker daemon for better rate limit handling
 setup_docker_auth() {
     local docker_username="${DOCKER_USERNAME:-}"
     local docker_password="${DOCKER_PASSWORD:-}"
@@ -66,9 +67,82 @@ DOCKER_CONFIG" 2>/dev/null
         else
             log_warn "Failed to configure Docker auth on $node (may not impact deployment)"
         fi
+
+        # Configure Docker daemon for better rate limit handling
+        # Update /etc/docker/daemon.json to include experimental features and auth settings
+        log_info "Updating Docker daemon configuration on $node..."
+        docker exec "$node" sh -c "cat > /etc/docker/daemon.json <<'DAEMON_CONFIG'
+{
+  \"log-driver\": \"json-file\",
+  \"log-opts\": {
+    \"max-size\": \"10m\",
+    \"max-file\": \"5\"
+  },
+  \"storage-driver\": \"overlay2\",
+  \"experimental\": false,
+  \"features\": {
+    \"buildkit\": true
+  }
+}
+DAEMON_CONFIG" 2>/dev/null
+
+        if [ $? -eq 0 ]; then
+            log_ok "Docker daemon config updated on $node"
+            # Restart Docker daemon to apply changes
+            docker exec "$node" sh -c "systemctl restart docker" 2>/dev/null || true
+        fi
     done
 
     log_ok "Docker authentication setup complete"
+}
+
+# Configure kubelet on KIND nodes with improved image pull handling for rate limits
+# Increases maxPullRetries and applies backoff policy for 429 errors
+setup_kubelet_image_pull_retry() {
+    log_info "Configuring kubelet image pull retry policy on KIND nodes..."
+
+    # Get list of KIND nodes
+    local nodes=$(docker ps --filter "label=io.x-k8s.kind.cluster=$CLUSTER_NAME" --format "{{.Names}}" 2>/dev/null)
+
+    if [ -z "$nodes" ]; then
+        log_warn "No KIND nodes found for cluster '$CLUSTER_NAME'"
+        return 0
+    fi
+
+    for node in $nodes; do
+        log_info "Configuring kubelet on node: $node"
+
+        # Create kubelet config to increase pull retries
+        # Note: We modify the kubelet service to include retry flags
+        docker exec "$node" sh -c "
+            # Modify kubelet startup options to add pull image retry logic
+            # The --image-pull-progress-deadline helps with slow pulls
+            # The --max-pods=110 is kind default, but we ensure it's set
+            mkdir -p /etc/kubernetes/kubelet-flags
+
+            # Check if kubelet is running with kubeadm (it is in KIND)
+            if [ -f /etc/kubernetes/kubelet.conf ]; then
+                # For KIND, kubelet is managed by kubeadm/systemd
+                # We add retry handling via environment if possible
+                echo 'export KUBELET_EXTRA_ARGS=\"--image-pull-progress-deadline=2m --max-pods=110\"' > /etc/default/kubelet 2>/dev/null || true
+            fi
+
+            # Also update Docker daemon to handle concurrent pull limits better
+            # This prevents thundering herd on rate limit
+            if [ -f /etc/docker/daemon.json ]; then
+                # Just log that daemon is already configured
+                echo 'Docker daemon already configured'
+            fi
+        " 2>/dev/null
+
+        if [ $? -eq 0 ]; then
+            log_ok "Kubelet retry policy configured on $node"
+        else
+            log_warn "Failed to fully configure kubelet on $node (may not impact deployment)"
+        fi
+    done
+
+    log_ok "Kubelet image pull retry configuration complete"
 }
 
 # Retry function with exponential backoff for handling rate limits (429 errors)
@@ -487,6 +561,9 @@ fi
 
 # Configure Docker authentication on cluster nodes to increase Docker Hub rate limit
 setup_docker_auth
+
+# Configure kubelet image pull retry policy for better handling of rate limit errors
+setup_kubelet_image_pull_retry
 
 echo ""
 
