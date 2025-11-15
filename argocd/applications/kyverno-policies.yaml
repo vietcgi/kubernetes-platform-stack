@@ -27,6 +27,11 @@ spec:
     syncOptions:
       - CreateNamespace=true
       - RespectIgnoreDifferences=true
+    ignoreDifferences:
+      - group: kyverno.io
+        kind: ClusterPolicy
+        jsonPointers:
+          - /metadata/annotations/argocd.argoproj.io~1tracking-id
     retry:
       limit: 5
       backoff:
