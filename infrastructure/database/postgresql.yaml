@@ -1,8 +1,7 @@
-# Secret is generated dynamically during deployment
-# To create the secret manually, run:
-# kubectl create secret generic postgres-secret \
-#   --from-literal=password=$(openssl rand -base64 24) \
-#   -n infrastructure
+---
+# Note: postgres-secret is managed via sealed secret
+# This StatefulSet references it
+# Secret must be created before StatefulSet is deployed
 
 ---
 apiVersion: v1

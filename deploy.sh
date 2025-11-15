@@ -20,6 +20,145 @@ log_ok() { echo -e "${GREEN}[✓]${NC} $1"; }
 log_warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
 log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 
+# Setup Vault Kubernetes auth for External Secrets
+setup_vault_auth() {
+    log_info "Configuring Vault Kubernetes authentication..."
+
+    # Get root token from Vault
+    VAULT_TOKEN=$(kubectl get secret -n vault vault-unseal-keys -o jsonpath='{.data.token}' 2>/dev/null | base64 -d 2>/dev/null)
+    if [ -z "$VAULT_TOKEN" ]; then
+        log_error "Cannot retrieve Vault root token"
+        return 1
+    fi
+
+    # Enable Kubernetes auth method if not already enabled
+    if kubectl exec -n vault vault-0 -- sh -c "VAULT_TOKEN='$VAULT_TOKEN' vault auth list -format=json 2>/dev/null" | grep -q "kubernetes"; then
+        log_ok "Kubernetes auth method already enabled"
+    else
+        log_info "Enabling Kubernetes auth method..."
+        kubectl exec -n vault vault-0 -- sh -c \
+            "VAULT_TOKEN='$VAULT_TOKEN' vault auth enable kubernetes" > /dev/null 2>&1
+        if [ $? -eq 0 ]; then
+            log_ok "Kubernetes auth method enabled"
+        else
+            log_warn "Kubernetes auth method may already be enabled"
+        fi
+    fi
+
+    # Configure Kubernetes auth with cluster details
+    log_info "Configuring Kubernetes auth connection..."
+    kubectl exec -n vault vault-0 -- sh -c \
+        "VAULT_TOKEN='$VAULT_TOKEN' vault write auth/kubernetes/config \
+        kubernetes_host=https://\$KUBERNETES_SERVICE_HOST:\$KUBERNETES_SERVICE_PORT \
+        kubernetes_ca_cert=@/var/run/secrets/kubernetes.io/serviceaccount/ca.crt \
+        token_reviewer_jwt=\$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" > /dev/null 2>&1
+    if [ $? -eq 0 ]; then
+        log_ok "Kubernetes auth connection configured"
+    else
+        log_error "Failed to configure Kubernetes auth connection"
+        return 1
+    fi
+
+    # Create policy for external-secrets
+    log_info "Creating Vault policy for external-secrets..."
+    kubectl exec -n vault vault-0 -- sh -c \
+        "VAULT_TOKEN='$VAULT_TOKEN' vault policy write external-secrets -" << 'EOF' > /dev/null 2>&1
+path "secret/data/demo/*" {
+  capabilities = ["read"]
+}
+EOF
+    if [ $? -eq 0 ]; then
+        log_ok "Vault policy created"
+    else
+        log_error "Failed to create Vault policy"
+        return 1
+    fi
+
+    # Create Kubernetes auth role for external-secrets
+    log_info "Creating Kubernetes auth role for external-secrets..."
+    kubectl exec -n vault vault-0 -- sh -c \
+        "VAULT_TOKEN='$VAULT_TOKEN' vault write auth/kubernetes/role/external-secrets \
+        bound_service_account_names=external-secrets \
+        bound_service_account_namespaces=external-secrets \
+        policies=external-secrets \
+        ttl=24h" > /dev/null 2>&1
+    if [ $? -eq 0 ]; then
+        log_ok "Kubernetes auth role created"
+    else
+        log_error "Failed to create Kubernetes auth role"
+        return 1
+    fi
+
+    log_ok "Vault Kubernetes authentication configured successfully"
+}
+
+# Setup demo credentials in Vault
+setup_vault_credentials() {
+    local password="$1"
+
+    log_info "Setting up demo credentials in Vault..."
+
+    # Wait for Vault to be ready
+    log_info "Waiting for Vault to be available..."
+    for i in {1..60}; do
+        if kubectl get pod -n vault vault-0 2>/dev/null | grep -q "Running"; then
+            log_ok "Vault is running"
+            break
+        fi
+        if [ $i -eq 60 ]; then
+            log_error "Vault pod not running, cannot setup credentials"
+            return 1
+        fi
+        sleep 2
+    done
+
+    # Unseal Vault if needed
+    log_info "Checking Vault seal status..."
+    VAULT_SEAL_STATUS=$(kubectl exec -n vault vault-0 -- vault status -format=json 2>/dev/null | grep -o '"sealed":[^,}]*' | cut -d':' -f2)
+
+    if [ "$VAULT_SEAL_STATUS" = "true" ]; then
+        log_info "Vault is sealed, attempting to unseal..."
+        VAULT_TOKEN=$(kubectl get secret -n vault vault-unseal-keys -o jsonpath='{.data.token}' 2>/dev/null | base64 -d 2>/dev/null)
+        if [ -n "$VAULT_TOKEN" ]; then
+            kubectl exec -n vault vault-0 -- sh -c "VAULT_TOKEN='$VAULT_TOKEN' vault operator unseal" > /dev/null 2>&1 || log_warn "Unsealing failed"
+        else
+            log_warn "No unseal token found, Vault may already be unsealed"
+        fi
+    fi
+
+    # Verify Vault is actually unsealed and accessible
+    if ! kubectl exec -n vault vault-0 -- vault status > /dev/null 2>&1; then
+        log_error "Vault is not accessible after unseal attempt"
+        return 1
+    fi
+
+    log_info "Storing demo credentials in Vault..."
+
+    # Store credentials using a more secure method (password via stdin, not visible in process args)
+    # This avoids exposing the password in process listings or logs
+    local services=("argocd" "grafana" "postgres" "harbor")
+    local failed=0
+
+    for service in "${services[@]}"; do
+        # Pass password via stdin to avoid it appearing in process arguments
+        if echo "$password" | kubectl exec -n vault vault-0 -- sh -c \
+            "read PASS && VAULT_TOKEN=\$(cat /vault/file/root_token 2>/dev/null) vault kv put secret/demo/$service password=\$PASS" > /dev/null 2>&1; then
+            log_ok "Stored credential for $service"
+        else
+            log_error "Failed to store credential for $service"
+            failed=$((failed + 1))
+        fi
+    done
+
+    if [ $failed -gt 0 ]; then
+        log_error "Failed to store $failed credentials in Vault"
+        return 1
+    fi
+
+    log_ok "All demo credentials stored in Vault successfully"
+}
+
+
 # Parse command-line arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -27,20 +166,26 @@ while [[ $# -gt 0 ]]; do
             FORCE_DELETE=true
             shift
             ;;
+        --password)
+            DEMO_PASSWORD="$2"
+            shift 2
+            ;;
         -h|--help)
             echo "Usage: $0 [OPTIONS]"
             echo ""
             echo "Options:"
-            echo "  --force           Force delete existing cluster before deploying"
-            echo "  -h, --help        Show this help message"
+            echo "  --force                  Force delete existing cluster before deploying"
+            echo "  --password PASSWORD      Demo environment password (stored in Vault)"
+            echo "  -h, --help               Show this help message"
             echo ""
             echo "Environment Variables:"
             echo "  CLUSTER_NAME             Cluster name (default: platform)"
             echo "  MONITORING_DURATION      Monitoring time in seconds (default: 1200)"
             echo ""
             echo "Examples:"
-            echo "  $0                       # Deploy to existing or create new cluster"
-            echo "  $0 --force               # Force delete and redeploy cluster"
+            echo "  $0                                  # Deploy with default password 'demo'"
+            echo "  $0 --force                          # Force delete and redeploy"
+            echo "  $0 --password mysecurepassword      # Deploy with custom password"
             exit 0
             ;;
         *)
@@ -49,6 +194,9 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+# Default password
+DEMO_PASSWORD="${DEMO_PASSWORD:-demo}"
 
 echo "======================================"
 echo "Kubernetes Platform Bootstrap"
@@ -312,6 +460,22 @@ for i in {1..60}; do
   fi
   sleep 2
 done
+
+echo ""
+echo "=============================================="
+echo "PHASE 3.5: Setup Demo Credentials in Vault"
+echo "=============================================="
+echo ""
+
+log_info "Waiting for Vault application to be deployed..."
+sleep 10  # Give ArgoCD time to sync Vault
+
+# External Secrets manifests are applied by ArgoCD (external-secrets-config Application)
+# Setup Vault Kubernetes auth (must run before External Secrets accesses Vault)
+setup_vault_auth
+
+# Setup credentials (runs after Vault auth is configured)
+setup_vault_credentials "$DEMO_PASSWORD"
 
 echo ""
 echo "=============================================="

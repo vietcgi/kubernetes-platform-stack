@@ -98,7 +98,9 @@ argo-cd:
     params:
       server.insecure: "true"
     secret:
-      createSecret: true
+      createSecret: false
+      # Password managed via sealed secret (argocd-admin secret)
+      # For demo env: password is "demo" (sealed encrypted)
     repositories: {}
     knownHosts:
       data: {}

@@ -1,0 +1,20 @@
+# Vault Backend Configuration for External Secrets
+# Passwords are stored IN VAULT ONLY
+# Git contains only references to Vault paths
+# NO cleartext passwords anywhere in git or code
+
+---
+# SecretStore: Tells External Secrets how to connect to Vault
+apiVersion: external-secrets.io/v1beta1
+kind: ClusterSecretStore
+metadata:
+  name: vault-backend
+spec:
+  provider:
+    vault:
+      server: "http://vault.vault.svc.cluster.local:8200"
+      path: "secret/data"
+      auth:
+        kubernetes:
+          mountPath: "kubernetes"
+          role: "external-secrets"

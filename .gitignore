@@ -21,6 +21,16 @@ charts/
 # Kubernetes
 *.yaml.bak
 secrets/
+# Never commit passwords or secrets
+*-secret.yaml
+*-secrets.yaml
+*-password.yaml
+*-credentials.yaml
+*.env
+.env
+.env.local
+vault-keys.txt
+sealing-key.yaml
 
 # Artifacts
 *.tar

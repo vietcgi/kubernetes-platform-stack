@@ -152,6 +152,17 @@ spec:
         tier: security
         criticality: high
 
+      - name: external-secrets-operator
+        namespace: external-secrets
+        repoURL: https://charts.external-secrets.io
+        chart: external-secrets
+        version: "0.14.0"
+        syncPolicy: aggressive
+        group: security
+        syncWave: "-1"
+        tier: infrastructure
+        criticality: high
+
       # Governance Layer
       - name: gatekeeper
         namespace: gatekeeper-system
@@ -618,6 +629,8 @@ spec:
               installCRDs: true
             {{ else if eq .name "harbor" }}
             # Harbor container registry
+            # Default admin password managed via sealed secret (harbor-admin secret)
+            # For demo env: password is "demo" (sealed encrypted)
             persistence:
               enabled: true
               persistentVolumeClaim:
@@ -1008,5 +1021,6 @@ data:
       - falco
       - kyverno
       - sealed-secrets
+      - external-secrets-operator
     governance:
       - gatekeeper

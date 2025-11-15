@@ -26,9 +26,9 @@ cd kind-gitops-platform
 # Watch progress
 watch kubectl get applications -n argocd
 
-# Get ArgoCD password
-kubectl -n argocd get secret argocd-initial-admin-secret \
-  -o jsonpath='{.data.password}' | base64 -d
+# Default ArgoCD admin password is set to "demo" by bootstrap
+# Or use custom password:
+./deploy.sh --password "your-secure-password"
 ```
 
 ### Access Services
@@ -44,7 +44,7 @@ http://prometheus.demo.local
 
 # Grafana (Dashboards)
 http://grafana.demo.local
-# Default credentials: admin / prom-operator
+# Default credentials: admin / demo (or custom password via ./deploy.sh --password)
 
 # Vault (Secrets Management)
 http://vault.demo.local
@@ -83,12 +83,13 @@ kubectl -n argocd get secret argocd-initial-admin-secret \
 - Jaeger (advanced tracing)
 
 ### Security
+- Vault (centralized secrets management)
+- External Secrets Operator (syncs from Vault to Kubernetes)
 - Sealed Secrets (encrypted secrets in git)
 - Kyverno (policy enforcement)
 - Gatekeeper (OPA policies)
 - Falco (runtime security)
 - Cert-Manager (TLS certificates)
-- Vault (secrets management)
 
 ### Storage & Backup
 - Longhorn (persistent volumes)
@@ -175,7 +176,13 @@ ArgoCD will detect the change and deploy automatically.
 
 ### Manage Secrets
 
-Use Sealed Secrets for credentials in git:
+For demo environment credentials (ArgoCD, Grafana, Harbor, PostgreSQL):
+- Use Vault with External Secrets Operator
+- Set password at deployment time: `./deploy.sh --password "secure-password"`
+- Credentials are stored in Vault, never in git
+
+For application secrets in git:
+- Use Sealed Secrets for encrypted secrets in version control
 
 ```bash
 # Create secret
@@ -193,7 +200,7 @@ git push
 kubectl apply -f db-password-sealed.yaml
 ```
 
-See CONFIGURATION.md for details.
+See CONFIGURATION.md and DEMO-CREDENTIALS-SETUP.md for details.
 
 ### Check Network Policies
 

@@ -1,0 +1,39 @@
+# RBAC for External Secrets
+# ServiceAccount and ClusterRole for Vault integration
+
+---
+# ServiceAccount for External Secrets to authenticate to Vault
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: external-secrets
+  namespace: external-secrets
+
+---
+# ClusterRole for External Secrets (basic permissions)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: external-secrets
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["external-secrets.io"]
+  resources: ["secretstores", "clustersecretstores"]
+  verbs: ["get", "list", "watch"]
+
+---
+# ClusterRoleBinding for External Secrets
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: external-secrets
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: external-secrets
+subjects:
+- kind: ServiceAccount
+  name: external-secrets
+  namespace: external-secrets

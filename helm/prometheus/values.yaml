@@ -38,11 +38,10 @@ kube-prometheus-stack:
     image:
       repository: grafana/grafana
       tag: "11.0.0"
-    # Admin password should be set via Sealed Secrets or External Secrets Operator
-    # DO NOT hardcode passwords in version control
-    # Use: kubectl create secret generic grafana-admin-password --from-literal=admin-password='<password>' -n monitoring
-    adminPassword: ""  # Leave empty and use existingSecret instead
-    existingSecret: ""  # Reference to Kubernetes secret containing admin-password key
+    # Admin password managed via sealed secret (grafana-admin secret)
+    # For demo env: password is "demo" (sealed encrypted)
+    adminPassword: ""
+    existingSecret: "grafana-admin"  # Reference to sealed secret
     service:
       type: LoadBalancer
       port: 80
