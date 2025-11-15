@@ -10,6 +10,11 @@ argo-cd:
     enabled: true
     replicaCount: 1
     insecure: true
+    # Disable TLS certificate creation - we use HTTP with Kong ingress
+    service:
+      type: ClusterIP
+    certificate:
+      enabled: false
     resources:
       requests:
         cpu: 100m
@@ -92,9 +97,6 @@ argo-cd:
   configs:
     params:
       server.insecure: "true"
-      # When behind HTTP ingress, disable server TLS to avoid redirect loops
-      # The URL is http:// so TLS must be disabled
-      server.disable.tls: "true"
     secret:
       createSecret: true
     repositories: {}
