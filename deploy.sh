@@ -40,15 +40,21 @@ setup_vault_init() {
     done
 
     # Wait for pod to be fully accessible (can kubectl exec)
-    log_info "Waiting for Vault pod to be accessible..."
-    for i in {1..30}; do
+    # This can take longer as Vault needs to start up its server
+    log_info "Waiting for Vault pod to be accessible (this may take 1-2 minutes)..."
+    for i in {1..120}; do
         if kubectl exec -n vault vault-0 -- vault status > /dev/null 2>&1; then
             log_ok "Vault pod is accessible"
             break
         fi
-        if [ $i -eq 30 ]; then
-            log_error "Vault pod is not accessible"
+        if [ $i -eq 120 ]; then
+            log_error "Vault pod is not accessible after 2 minutes"
+            log_error "Checking pod logs for errors..."
+            kubectl logs -n vault vault-0 | tail -20
             return 1
+        fi
+        if [ $((i % 10)) -eq 0 ]; then
+            echo -ne "."
         fi
         sleep 1
     done
