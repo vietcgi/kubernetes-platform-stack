@@ -15,6 +15,9 @@ argo-cd:
       type: ClusterIP
     certificate:
       enabled: false
+    # Pass --insecure directly to server to prevent TLS cert auto-generation
+    extraArgs:
+      - --insecure
     resources:
       requests:
         cpu: 100m
