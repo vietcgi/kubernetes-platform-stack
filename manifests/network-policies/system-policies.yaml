@@ -65,7 +65,7 @@ metadata:
     app.kubernetes.io/component: core
 spec:
   endpointSelector: {}
-  description: "Allow pod-to-pod communication within vault namespace"
+  description: "Allow pod-to-pod communication within vault namespace and external-secrets access"
   ingress:
   - fromEndpoints:
     - matchLabels:
@@ -75,6 +75,14 @@ spec:
       - port: "8200"
         protocol: TCP
       - port: "8201"
+        protocol: TCP
+  # Allow External Secrets to access Vault API
+  - fromEndpoints:
+    - matchLabels:
+        io.kubernetes.pod.namespace: external-secrets
+    toPorts:
+    - ports:
+      - port: "8200"
         protocol: TCP
   egress:
   # Allow communication within namespace
