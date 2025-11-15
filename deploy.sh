@@ -214,11 +214,10 @@ EOF
     log_info "Creating Kubernetes auth role for external-secrets..."
     kubectl exec -n vault vault-0 -- env VAULT_TOKEN="$VAULT_TOKEN" \
         vault write auth/kubernetes/role/external-secrets \
-        bound_service_account_names=external-secrets \
+        bound_service_account_names=external-secrets-operator \
         bound_service_account_namespaces=external-secrets \
         policies=external-secrets \
-        ttl=24h \
-        audience=vault > /dev/null 2>&1
+        ttl=24h > /dev/null 2>&1
     if [ $? -eq 0 ]; then
         log_ok "Kubernetes auth role created"
     else
