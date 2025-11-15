@@ -1,0 +1,18 @@
+---
+# Strategic merge patch for argocd-server deployment
+# This ensures the --insecure flag is permanently applied
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: argocd-server
+  namespace: argocd
+spec:
+  template:
+    spec:
+      containers:
+      - name: server
+        args:
+        - /usr/local/bin/argocd-server
+        - --port=8080
+        - --metrics-port=8083
+        - --insecure

@@ -235,10 +235,10 @@ helm upgrade --install argocd argoproj/argo-cd \
   --version 9.1.2 \
   --wait
 
-log_info "Patching argocd-server deployment to inject --insecure flag..."
-kubectl patch deployment argocd-server -n argocd --type='json' \
-  -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/args", "value": ["/usr/local/bin/argocd-server", "--port=8080", "--metrics-port=8083", "--insecure"]}]' \
-  2>/dev/null || log_warn "Failed to patch argocd-server deployment (may already be patched)"
+log_info "Applying permanent argocd-server --insecure patch..."
+kubectl patch deployment argocd-server -n argocd --type='strategic' \
+  --patch="$(cat "$SCRIPT_DIR/argocd/config/argocd-server-patch.yaml")" \
+  2>/dev/null || log_warn "Failed to patch argocd-server deployment"
 
 log_info "Waiting for ArgoCD server..."
 kubectl wait deployment argocd-server -n argocd --for=condition=Available --timeout=$STARTUP_TIMEOUT
