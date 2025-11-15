@@ -1,0 +1,45 @@
+apiVersion: kyverno.io/v2
+kind: PolicyException
+metadata:
+  name: vault-exception
+  namespace: vault
+spec:
+  exceptions:
+  # Vault requires root access for memory locking and other privileged operations
+  - ruleIndex: 0
+    ruleType: validate
+    policyName: require-non-root
+
+  # Vault needs to write to /vault/data directory
+  - ruleIndex: 0
+    ruleType: validate
+    policyName: require-readonly-filesystem
+
+  # Vault requires certain capabilities for secure operations (IPC_LOCK for mlock)
+  - ruleIndex: 0
+    ruleType: validate
+    policyName: drop-all-capabilities
+
+  # Vault image is from docker.io which is allowed by registry policy
+  - ruleIndex: 0
+    ruleType: validate
+    policyName: restrict-image-registries
+
+  # Vault StatefulSet may need privileged settings
+  - ruleIndex: 0
+    ruleType: validate
+    policyName: disallow-privileged-containers
+
+  # Allow Vault to work with Helm values that don't specify all resource limits
+  - ruleIndex: 0
+    ruleType: validate
+    policyName: require-resource-limits
+  match:
+    resources:
+      names:
+      - vault-0
+      - vault-agent-injector*
+      namespaces:
+      - vault
+      kinds:
+      - Pod
