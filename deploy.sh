@@ -96,11 +96,73 @@ fi
 echo ""
 
 echo "=============================================="
-echo "PHASE 1: Network Prerequisites (CoreDNS & Cilium)"
+echo "PHASE 1: Network Prerequisites (Cilium, then CoreDNS)"
 echo "=============================================="
 echo ""
 
-log_info "Installing CoreDNS..."
+log_info "Installing Cilium CNI first (prerequisite for CoreDNS)..."
+
+# Preload Cilium images for faster bootstrap and offline support
+CILIUM_VERSION="1.18.4"
+CILIUM_IMAGE="quay.io/cilium/cilium:${CILIUM_VERSION}"
+CILIUM_OPERATOR_IMAGE="quay.io/cilium/operator-generic:${CILIUM_VERSION}"
+
+log_info "Preloading Cilium images to speed up installation..."
+docker pull "${CILIUM_IMAGE}" 2>&1 | grep -E "Pulling|Downloaded|Already" | tail -3 || true
+docker pull "${CILIUM_OPERATOR_IMAGE}" 2>&1 | grep -E "Pulling|Downloaded|Already" | tail -3 || true
+kind load docker-image "${CILIUM_IMAGE}" --name "$CLUSTER_NAME" 2>&1 | tail -2 || true
+kind load docker-image "${CILIUM_OPERATOR_IMAGE}" --name "$CLUSTER_NAME" 2>&1 | tail -2 || true
+
+helm repo add cilium https://helm.cilium.io
+helm repo update cilium
+
+# Get control plane IP address to avoid DNS chicken-and-egg problem
+CONTROL_PLANE_NODE="${CLUSTER_NAME}-control-plane"
+log_info "Detecting control plane IP address..."
+CONTROL_PLANE_IP=$(kubectl get node "$CONTROL_PLANE_NODE" -o jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}')
+log_info "Control plane IP: $CONTROL_PLANE_IP"
+
+helm upgrade --install cilium cilium/cilium \
+  --namespace kube-system \
+  --values "$SCRIPT_DIR/helm/cilium/values.yaml" \
+  --version ${CILIUM_VERSION} \
+  --set k8sServiceHost="$CONTROL_PLANE_IP" \
+  --timeout 10m \
+  --wait
+
+log_info "Waiting for Cilium to be ready (this may take 5-10 minutes)..."
+cilium_ready=0
+for i in {1..180}; do
+    # Check for running Cilium pods
+    cilium_pods=$(kubectl get pods -n kube-system -l k8s-app=cilium --field-selector=status.phase=Running 2>/dev/null | tail -n +2 | wc -l | xargs)
+
+    # Verify all nodes are Ready (critical for kube-proxy replacement validation)
+    if [ "$cilium_pods" -gt 0 ]; then
+        ready_nodes=$(kubectl get nodes --no-headers 2>/dev/null | grep -c " Ready " | xargs)
+        node_count=$(kubectl get nodes --no-headers 2>/dev/null | wc -l | xargs)
+
+        # Check if nodes are fully ready and kube-proxy mode is correctly set to none
+        if [ -n "$node_count" ] && [ "$node_count" -gt 0 ] && [ "$ready_nodes" -eq "$node_count" ]; then
+            cilium_ready=1
+            log_ok "✓ Cilium pods running: $cilium_pods, All nodes Ready: $ready_nodes/$node_count"
+            break
+        fi
+    fi
+
+    if [ $((i % 20)) -eq 0 ]; then
+        log_info "Waiting for Cilium initialization... ($i/180, pods: $cilium_pods, nodes: $ready_nodes)"
+    fi
+    sleep 5
+done
+
+if [ "$cilium_ready" -eq 0 ]; then
+    log_warn "Cilium initialization taking longer than expected, continuing anyway..."
+fi
+
+log_ok "Cilium installed and ready"
+echo ""
+
+log_info "Installing CoreDNS (now that network is ready)..."
 helm repo add coredns https://coredns.github.io/helm
 helm repo update coredns
 
@@ -150,81 +212,10 @@ helm upgrade --install coredns coredns/coredns \
   --namespace kube-system \
   --values "$SCRIPT_DIR/helm/coredns/values.yaml" \
   --version 1.45.0 \
-  --timeout 5m \
-  --wait || log_warn "CoreDNS Helm install timeout (may still be starting)"
-
-# Wait for CoreDNS to actually be ready
-log_info "Waiting for CoreDNS pods to be ready..."
-for i in {1..120}; do
-  ready_pods=$(kubectl get pods -n kube-system -l k8s-app=coredns --field-selector=status.phase=Running 2>/dev/null | tail -n +2 | wc -l | xargs)
-  if [ "$ready_pods" -eq 2 ]; then
-    log_ok "CoreDNS installed and ready ($ready_pods replicas)"
-    break
-  fi
-  if [ $((i % 10)) -eq 0 ]; then
-    log_info "Waiting for CoreDNS pods... ($i/120, ready: $ready_pods/2)"
-  fi
-  sleep 1
-done
-echo ""
-
-log_info "Installing Cilium CNI..."
-
-# Preload Cilium images for faster bootstrap and offline support
-CILIUM_VERSION="1.18.4"
-CILIUM_IMAGE="quay.io/cilium/cilium:${CILIUM_VERSION}"
-CILIUM_OPERATOR_IMAGE="quay.io/cilium/operator-generic:${CILIUM_VERSION}"
-
-log_info "Preloading Cilium images to speed up installation..."
-docker pull "${CILIUM_IMAGE}" 2>&1 | grep -E "Pulling|Downloaded|Already" | tail -3 || true
-docker pull "${CILIUM_OPERATOR_IMAGE}" 2>&1 | grep -E "Pulling|Downloaded|Already" | tail -3 || true
-kind load docker-image "${CILIUM_IMAGE}" --name "$CLUSTER_NAME" 2>&1 | tail -2 || true
-kind load docker-image "${CILIUM_OPERATOR_IMAGE}" --name "$CLUSTER_NAME" 2>&1 | tail -2 || true
-
-helm repo add cilium https://helm.cilium.io
-helm repo update cilium
-
-# Get control plane IP address to avoid DNS chicken-and-egg problem
-CONTROL_PLANE_NODE="${CLUSTER_NAME}-control-plane"
-log_info "Detecting control plane IP address..."
-CONTROL_PLANE_IP=$(kubectl get node "$CONTROL_PLANE_NODE" -o jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}')
-log_info "Control plane IP: $CONTROL_PLANE_IP"
-
-helm upgrade --install cilium cilium/cilium \
-  --namespace kube-system \
-  --values "$SCRIPT_DIR/helm/cilium/values.yaml" \
-  --version ${CILIUM_VERSION} \
-  --set k8sServiceHost="$CONTROL_PLANE_IP" \
   --wait
 
-log_info "Waiting for Cilium to be ready (this may take 5-10 minutes)..."
-cilium_ready=0
-for i in {1..180}; do
-    # Check for running Cilium pods
-    cilium_pods=$(kubectl get pods -n kube-system -l k8s-app=cilium --field-selector=status.phase=Running 2>/dev/null | tail -n +2 | wc -l | xargs)
-
-    # Verify all nodes are Ready (critical for kube-proxy replacement validation)
-    if [ "$cilium_pods" -gt 0 ]; then
-        ready_nodes=$(kubectl get nodes --no-headers 2>/dev/null | grep -c " Ready " | xargs)
-        node_count=$(kubectl get nodes --no-headers 2>/dev/null | wc -l | xargs)
-
-        # Check if nodes are fully ready and kube-proxy mode is correctly set to none
-        if [ -n "$node_count" ] && [ "$node_count" -gt 0 ] && [ "$ready_nodes" -eq "$node_count" ]; then
-            cilium_ready=1
-            log_ok "✓ Cilium pods running: $cilium_pods, All nodes Ready: $ready_nodes/$node_count"
-            break
-        fi
-    fi
-
-    if [ $((i % 20)) -eq 0 ]; then
-        log_info "Waiting for Cilium initialization... ($i/180, pods: $cilium_pods, nodes: $ready_nodes)"
-    fi
-    sleep 5
-done
-
-if [ "$cilium_ready" -eq 0 ]; then
-    log_warn "Cilium initialization taking longer than expected, continuing anyway..."
-fi
+log_ok "CoreDNS installed and ready"
+echo ""
 
 log_info "Phase 1 complete - Network prerequisites established"
 
@@ -247,11 +238,6 @@ helm upgrade --install argocd argoproj/argo-cd \
   --values "$SCRIPT_DIR/helm/argocd/values.yaml" \
   --version 9.1.2 \
   --wait
-
-log_info "Patching argocd-server deployment to inject --insecure flag..."
-kubectl patch deployment argocd-server -n argocd --type='json' \
-  -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/args", "value": ["/usr/local/bin/argocd-server", "--port=8080", "--metrics-port=8083", "--insecure"]}]' \
-  2>/dev/null || log_warn "Failed to patch argocd-server deployment (may already be patched)"
 
 log_info "Waiting for ArgoCD server..."
 kubectl wait deployment argocd-server -n argocd --for=condition=Available --timeout=$STARTUP_TIMEOUT
