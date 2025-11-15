@@ -96,53 +96,43 @@ DAEMON_CONFIG" 2>/dev/null
     log_ok "Docker authentication setup complete"
 }
 
-# Configure kubelet on KIND nodes with improved image pull handling for rate limits
-# Increases maxPullRetries and applies backoff policy for 429 errors
-setup_kubelet_image_pull_retry() {
-    log_info "Configuring kubelet image pull retry policy on KIND nodes..."
+# Create Kubernetes imagePullSecret for Docker authentication
+# This ensures kubelet uses credentials for all image pulls cluster-wide
+setup_image_pull_secret() {
+    local docker_username="${DOCKER_USERNAME:-}"
+    local docker_password="${DOCKER_PASSWORD:-}"
 
-    # Get list of KIND nodes
-    local nodes=$(docker ps --filter "label=io.x-k8s.kind.cluster=$CLUSTER_NAME" --format "{{.Names}}" 2>/dev/null)
-
-    if [ -z "$nodes" ]; then
-        log_warn "No KIND nodes found for cluster '$CLUSTER_NAME'"
+    # Skip if credentials not provided
+    if [ -z "$docker_username" ] || [ -z "$docker_password" ]; then
+        log_info "Image pull secret skipped (DOCKER_USERNAME or DOCKER_PASSWORD not set)"
         return 0
     fi
 
-    for node in $nodes; do
-        log_info "Configuring kubelet on node: $node"
+    log_info "Creating Kubernetes imagePullSecret for Docker authentication..."
 
-        # Create kubelet config to increase pull retries
-        # Note: We modify the kubelet service to include retry flags
-        docker exec "$node" sh -c "
-            # Modify kubelet startup options to add pull image retry logic
-            # The --image-pull-progress-deadline helps with slow pulls
-            # The --max-pods=110 is kind default, but we ensure it's set
-            mkdir -p /etc/kubernetes/kubelet-flags
+    # Create docker registry secret in default namespace
+    # This secret will be used by kubelet for all image pulls
+    kubectl create secret docker-registry dockerhub-auth \
+        --docker-server=docker.io \
+        --docker-username="$docker_username" \
+        --docker-password="$docker_password" \
+        --docker-email="automation@example.com" \
+        -n default \
+        --dry-run=client -o yaml | kubectl apply -f - 2>/dev/null
 
-            # Check if kubelet is running with kubeadm (it is in KIND)
-            if [ -f /etc/kubernetes/kubelet.conf ]; then
-                # For KIND, kubelet is managed by kubeadm/systemd
-                # We add retry handling via environment if possible
-                echo 'export KUBELET_EXTRA_ARGS=\"--image-pull-progress-deadline=2m --max-pods=110\"' > /etc/default/kubelet 2>/dev/null || true
-            fi
+    if [ $? -eq 0 ]; then
+        log_ok "Kubernetes imagePullSecret created in default namespace"
+    else
+        log_warn "Failed to create imagePullSecret (may not impact deployment)"
+    fi
 
-            # Also update Docker daemon to handle concurrent pull limits better
-            # This prevents thundering herd on rate limit
-            if [ -f /etc/docker/daemon.json ]; then
-                # Just log that daemon is already configured
-                echo 'Docker daemon already configured'
-            fi
-        " 2>/dev/null
+    # Also patch default service account to use the secret
+    # This allows pods without explicit imagePullSecrets to use credentials
+    kubectl patch serviceaccount default \
+        -p '{"imagePullSecrets": [{"name": "dockerhub-auth"}]}' \
+        -n default 2>/dev/null || true
 
-        if [ $? -eq 0 ]; then
-            log_ok "Kubelet retry policy configured on $node"
-        else
-            log_warn "Failed to fully configure kubelet on $node (may not impact deployment)"
-        fi
-    done
-
-    log_ok "Kubelet image pull retry configuration complete"
+    log_ok "Image pull secret configuration complete"
 }
 
 # Retry function with exponential backoff for handling rate limits (429 errors)
@@ -562,8 +552,8 @@ fi
 # Configure Docker authentication on cluster nodes to increase Docker Hub rate limit
 setup_docker_auth
 
-# Configure kubelet image pull retry policy for better handling of rate limit errors
-setup_kubelet_image_pull_retry
+# Create Kubernetes imagePullSecret for proper kubelet authentication
+setup_image_pull_secret
 
 echo ""
 
