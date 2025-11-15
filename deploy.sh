@@ -39,57 +39,43 @@ setup_vault_init() {
         sleep 2
     done
 
-    # Wait for pod to be fully accessible
-    # Use HTTP healthcheck instead of vault status (which requires initialization)
-    log_info "Waiting for Vault HTTP server to be accessible..."
-    for i in {1..60}; do
-        if kubectl exec -n vault vault-0 -- curl -s http://localhost:8200/v1/sys/health > /dev/null 2>&1; then
-            log_ok "Vault HTTP server is accessible"
-            break
-        fi
-        if [ $i -eq 60 ]; then
-            log_error "Vault HTTP server is not accessible"
-            log_error "Checking pod logs for errors..."
-            kubectl logs -n vault vault-0 | tail -20
-            return 1
-        fi
-        if [ $((i % 10)) -eq 0 ]; then
-            echo -ne "."
-        fi
-        sleep 1
-    done
+    # Don't wait for HTTP - just try to initialize directly
+    # The vault CLI will work even during startup
+    log_info "Attempting Vault initialization (will skip if already initialized)..."
 
-    # Check if already initialized
-    VAULT_INIT_STATUS=$(kubectl exec -n vault vault-0 -- vault status -format=json 2>/dev/null | jq -r '.initialized' 2>/dev/null)
+    # First, check if secret already exists (Vault was already initialized)
+    if kubectl get secret -n vault vault-unseal-keys 2>/dev/null | grep -q "vault-unseal-keys"; then
+        log_ok "Vault already initialized (secret exists)"
+        # Try to get existing credentials
+        ROOT_TOKEN=$(kubectl get secret -n vault vault-unseal-keys -o jsonpath='{.data.root_token}' 2>/dev/null | base64 -d 2>/dev/null)
+        UNSEAL_KEY=$(kubectl get secret -n vault vault-unseal-keys -o jsonpath='{.data.unseal_key}' 2>/dev/null | base64 -d 2>/dev/null)
 
-    if [ "$VAULT_INIT_STATUS" = "true" ]; then
-        log_ok "Vault is already initialized"
-
-        # Check if sealed and unseal if needed
-        VAULT_SEAL_STATUS=$(kubectl exec -n vault vault-0 -- vault status -format=json 2>/dev/null | jq -r '.sealed' 2>/dev/null)
-        if [ "$VAULT_SEAL_STATUS" = "true" ]; then
-            log_warn "Vault is sealed, attempting to unseal..."
-            # Try using root token from existing secret
-            VAULT_TOKEN=$(kubectl get secret -n vault vault-unseal-keys -o jsonpath='{.data.root_token}' 2>/dev/null | base64 -d 2>/dev/null)
-            if [ -n "$VAULT_TOKEN" ]; then
-                UNSEAL_KEY=$(kubectl get secret -n vault vault-unseal-keys -o jsonpath='{.data.unseal_key}' 2>/dev/null | base64 -d 2>/dev/null)
-                if [ -n "$UNSEAL_KEY" ]; then
-                    kubectl exec -n vault vault-0 -- vault operator unseal "$UNSEAL_KEY" > /dev/null 2>&1
-                    log_ok "Vault unsealed"
-                fi
+        if [ -n "$ROOT_TOKEN" ] && [ -n "$UNSEAL_KEY" ]; then
+            # Try to unseal if needed
+            SEALED=$(kubectl exec -n vault vault-0 -- vault status -format=json 2>/dev/null | jq -r '.sealed' 2>/dev/null)
+            if [ "$SEALED" = "true" ]; then
+                log_info "Vault is sealed, unsealing..."
+                kubectl exec -n vault vault-0 -- vault operator unseal "$UNSEAL_KEY" > /dev/null 2>&1
+                log_ok "Vault unsealed"
+            else
+                log_ok "Vault is already unsealed"
             fi
-        else
-            log_ok "Vault is already unsealed"
+            return 0
         fi
+    fi
+
+    # Try to initialize Vault with single key share and threshold
+    INIT_RESPONSE=$(kubectl exec -n vault vault-0 -- vault operator init -key-shares=1 -key-threshold=1 -format=json 2>&1)
+    INIT_STATUS=$?
+
+    # Check if already initialized error
+    if echo "$INIT_RESPONSE" | grep -q "already initialized"; then
+        log_ok "Vault is already initialized"
         return 0
     fi
 
-    # Initialize Vault with single key share and threshold
-    log_info "Initializing Vault (this runs once)..."
-    INIT_RESPONSE=$(kubectl exec -n vault vault-0 -- vault operator init -key-shares=1 -key-threshold=1 -format=json 2>/dev/null)
-
-    if [ -z "$INIT_RESPONSE" ]; then
-        log_error "Failed to initialize Vault"
+    if [ -z "$INIT_RESPONSE" ] || ! echo "$INIT_RESPONSE" | jq . > /dev/null 2>&1; then
+        log_error "Failed to initialize Vault: $INIT_RESPONSE"
         return 1
     fi
 

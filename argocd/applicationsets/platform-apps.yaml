@@ -662,10 +662,33 @@ spec:
             postUpgradeChecker:
               jobEnabled: false
             {{ else if eq .name "vault" }}
-            # Vault with enabled ingress
+            # Vault with enabled ingress and Kyverno-compliant security settings
             ui:
               enabled: true
             server:
+              # Security context and resource limits required by Kyverno policies
+              resources:
+                limits:
+                  cpu: 500m
+                  memory: 512Mi
+                requests:
+                  cpu: 250m
+                  memory: 256Mi
+              securityContext:
+                runAsNonRoot: false  # Vault requires root for certain operations
+                runAsUser: 100       # Run as vault user (UID 100)
+                fsGroup: 1000
+                capabilities:
+                  drop:
+                    - ALL
+                  add:
+                    - IPC_LOCK  # Vault needs this capability for memory locking
+                readOnlyRootFilesystem: false  # Vault needs to write to /vault/data
+              # Pod-level security context
+              podSecurityContext:
+                runAsNonRoot: false
+                runAsUser: 100
+                fsGroup: 1000
               ingress:
                 enabled: true
                 ingressClassName: kong
