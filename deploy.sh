@@ -171,12 +171,11 @@ setup_vault_auth() {
     fi
 
     # Enable Kubernetes auth method if not already enabled
-    if kubectl exec -n vault vault-0 -- sh -c "VAULT_TOKEN='$VAULT_TOKEN' vault auth list -format=json 2>/dev/null" | grep -q "kubernetes"; then
+    if kubectl exec -n vault vault-0 -- env VAULT_TOKEN="$VAULT_TOKEN" vault auth list -format=json 2>/dev/null | grep -q "kubernetes"; then
         log_ok "Kubernetes auth method already enabled"
     else
         log_info "Enabling Kubernetes auth method..."
-        kubectl exec -n vault vault-0 -- sh -c \
-            "VAULT_TOKEN='$VAULT_TOKEN' vault auth enable kubernetes" > /dev/null 2>&1
+        kubectl exec -n vault vault-0 -- env VAULT_TOKEN="$VAULT_TOKEN" vault auth enable kubernetes > /dev/null 2>&1
         if [ $? -eq 0 ]; then
             log_ok "Kubernetes auth method enabled"
         else
@@ -186,11 +185,11 @@ setup_vault_auth() {
 
     # Configure Kubernetes auth with cluster details
     log_info "Configuring Kubernetes auth connection..."
-    kubectl exec -n vault vault-0 -- sh -c \
-        "VAULT_TOKEN='$VAULT_TOKEN' vault write auth/kubernetes/config \
-        kubernetes_host=https://\$KUBERNETES_SERVICE_HOST:\$KUBERNETES_SERVICE_PORT \
+    kubectl exec -n vault vault-0 -- env VAULT_TOKEN="$VAULT_TOKEN" \
+        sh -c 'vault write auth/kubernetes/config \
+        kubernetes_host="https://${KUBERNETES_SERVICE_HOST}:${KUBERNETES_SERVICE_PORT_HTTPS}" \
         kubernetes_ca_cert=@/var/run/secrets/kubernetes.io/serviceaccount/ca.crt \
-        token_reviewer_jwt=\$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" > /dev/null 2>&1
+        token_reviewer_jwt=@/var/run/secrets/kubernetes.io/serviceaccount/token' > /dev/null 2>&1
     if [ $? -eq 0 ]; then
         log_ok "Kubernetes auth connection configured"
     else
@@ -200,10 +199,9 @@ setup_vault_auth() {
 
     # Create policy for external-secrets
     log_info "Creating Vault policy for external-secrets..."
-    kubectl exec -n vault vault-0 -- sh -c \
-        "VAULT_TOKEN='$VAULT_TOKEN' vault policy write external-secrets -" << 'EOF' > /dev/null 2>&1
+    kubectl exec -n vault vault-0 -- env VAULT_TOKEN="$VAULT_TOKEN" vault policy write external-secrets - > /dev/null 2>&1 << 'EOF'
 path "secret/data/demo/*" {
-  capabilities = ["read"]
+  capabilities = ["read", "list"]
 }
 EOF
     if [ $? -eq 0 ]; then
@@ -214,13 +212,13 @@ EOF
 
     # Create Kubernetes auth role for external-secrets
     log_info "Creating Kubernetes auth role for external-secrets..."
-    kubectl exec -n vault vault-0 -- sh -c \
-        "VAULT_TOKEN='$VAULT_TOKEN' vault write auth/kubernetes/role/external-secrets \
+    kubectl exec -n vault vault-0 -- env VAULT_TOKEN="$VAULT_TOKEN" \
+        vault write auth/kubernetes/role/external-secrets \
         bound_service_account_names=external-secrets \
         bound_service_account_namespaces=external-secrets \
         policies=external-secrets \
         ttl=24h \
-        audience=vault" > /dev/null 2>&1
+        audience=vault > /dev/null 2>&1
     if [ $? -eq 0 ]; then
         log_ok "Kubernetes auth role created"
     else
@@ -272,15 +270,16 @@ setup_vault_credentials() {
 
     log_info "Storing demo credentials in Vault..."
 
-    # Store credentials using stdin to avoid exposing password in process args
-    # This securely passes the password without it appearing in process listings
+    # Store credentials using environment variables passed to kubectl exec
+    # This avoids stdin issues and properly escapes all special characters
     local services=("argocd" "grafana" "postgres" "harbor")
     local failed=0
 
     for service in "${services[@]}"; do
-        # Pass password via stdin and use VAULT_TOKEN environment variable
-        if echo "$password" | kubectl exec -n vault vault-0 -- sh -c \
-            "read PASS && env VAULT_TOKEN='$VAULT_TOKEN' vault kv put secret/demo/$service password=\$PASS" > /dev/null 2>&1; then
+        # Use environment variable to pass both token and password securely
+        if kubectl exec -n vault vault-0 -- \
+            env VAULT_TOKEN="$VAULT_TOKEN" DEMO_PASSWORD="$password" \
+            vault kv put secret/demo/$service password="$DEMO_PASSWORD" > /dev/null 2>&1; then
             log_ok "Stored credential for $service"
         else
             log_error "Failed to store credential for $service"
