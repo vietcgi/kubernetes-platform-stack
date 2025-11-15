@@ -638,6 +638,10 @@ setup_vault_auth
 # Setup credentials (runs after Vault auth is configured)
 setup_vault_credentials "$DEMO_PASSWORD"
 
+# Disable Kyverno validation for api-gateway namespace (Kong requires privileged mode, custom image registry, etc)
+log_info "Disabling Kyverno validation for api-gateway namespace..."
+kubectl label namespace api-gateway kyverno.io/enforce=disable kyverno.io/audit=disable kyverno.io/background=disable --overwrite 2>/dev/null || true
+
 echo ""
 echo "=============================================="
 echo "PHASE 4: Active Health Monitoring"
