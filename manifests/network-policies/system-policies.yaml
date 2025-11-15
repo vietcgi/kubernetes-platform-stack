@@ -100,6 +100,10 @@ spec:
         protocol: UDP
       - port: "53"
         protocol: TCP
-  # Allow Kubernetes API access
+  # Allow Kubernetes API access on HTTPS
   - toEntities:
     - "kube-apiserver"
+    toPorts:
+    - ports:
+      - port: "443"
+        protocol: TCP
