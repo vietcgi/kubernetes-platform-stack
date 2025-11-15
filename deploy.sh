@@ -110,23 +110,28 @@ setup_image_pull_secret() {
 
     log_info "Creating Kubernetes imagePullSecret for Docker authentication..."
 
+    # Define critical namespaces that must exist
+    # These are created by ArgoCD or required for platform functionality
+    local critical_namespaces="default kube-system argocd external-secrets vault kyverno api-gateway gatekeeper-system velero sealed-secrets"
+
     # Create docker registry secret in critical namespaces
     # Secrets are namespace-scoped, so we need to create in each namespace where pods pull images
-    for namespace in default kube-system argocd external-secrets vault kyverno; do
+    for namespace in $critical_namespaces; do
         # Create namespace if it doesn't exist (some may not be created yet)
         kubectl create namespace "$namespace" --dry-run=client -o yaml | kubectl apply -f - 2>/dev/null
 
-        # Create secret in namespace
-        kubectl create secret docker-registry dockerhub-auth \
-            --docker-server=docker.io \
-            --docker-username="$docker_username" \
-            --docker-password="$docker_password" \
-            --docker-email="automation@example.com" \
-            -n "$namespace" \
-            --dry-run=client -o yaml | kubectl apply -f - 2>/dev/null
+        # Create secret in namespace - check if it already exists first
+        if ! kubectl get secret dockerhub-auth -n "$namespace" &>/dev/null; then
+            kubectl create secret docker-registry dockerhub-auth \
+                --docker-server=docker.io \
+                --docker-username="$docker_username" \
+                --docker-password="$docker_password" \
+                --docker-email="automation@example.com" \
+                -n "$namespace" 2>&1 | grep -v "already exists" || true
+        fi
 
-        if [ $? -eq 0 ]; then
-            log_ok "Kubernetes imagePullSecret created in $namespace namespace"
+        if kubectl get secret dockerhub-auth -n "$namespace" &>/dev/null; then
+            log_ok "Kubernetes imagePullSecret exists in $namespace namespace"
         fi
 
         # Patch default service account in each namespace to use the secret
