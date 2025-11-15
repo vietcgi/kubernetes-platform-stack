@@ -150,9 +150,22 @@ helm upgrade --install coredns coredns/coredns \
   --namespace kube-system \
   --values "$SCRIPT_DIR/helm/coredns/values.yaml" \
   --version 1.45.0 \
-  --wait
+  --timeout 5m \
+  --wait || log_warn "CoreDNS Helm install timeout (may still be starting)"
 
-log_ok "CoreDNS installed"
+# Wait for CoreDNS to actually be ready
+log_info "Waiting for CoreDNS pods to be ready..."
+for i in {1..120}; do
+  ready_pods=$(kubectl get pods -n kube-system -l k8s-app=coredns --field-selector=status.phase=Running 2>/dev/null | tail -n +2 | wc -l | xargs)
+  if [ "$ready_pods" -eq 2 ]; then
+    log_ok "CoreDNS installed and ready ($ready_pods replicas)"
+    break
+  fi
+  if [ $((i % 10)) -eq 0 ]; then
+    log_info "Waiting for CoreDNS pods... ($i/120, ready: $ready_pods/2)"
+  fi
+  sleep 1
+done
 echo ""
 
 log_info "Installing Cilium CNI..."
@@ -235,10 +248,10 @@ helm upgrade --install argocd argoproj/argo-cd \
   --version 9.1.2 \
   --wait
 
-log_info "Applying permanent argocd-server --insecure patch..."
-kubectl patch deployment argocd-server -n argocd --type='strategic' \
-  --patch="$(cat "$SCRIPT_DIR/argocd/config/argocd-server-patch.yaml")" \
-  2>/dev/null || log_warn "Failed to patch argocd-server deployment"
+log_info "Patching argocd-server deployment to inject --insecure flag..."
+kubectl patch deployment argocd-server -n argocd --type='json' \
+  -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/args", "value": ["/usr/local/bin/argocd-server", "--port=8080", "--metrics-port=8083", "--insecure"]}]' \
+  2>/dev/null || log_warn "Failed to patch argocd-server deployment (may already be patched)"
 
 log_info "Waiting for ArgoCD server..."
 kubectl wait deployment argocd-server -n argocd --for=condition=Available --timeout=$STARTUP_TIMEOUT
