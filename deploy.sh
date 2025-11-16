@@ -350,6 +350,13 @@ setup_vault_auth() {
         return 0  # Return 0 to allow deployment to continue
     fi
 
+    # Grant Vault service account permission to review tokens in Kubernetes
+    log_info "Creating RBAC binding for Vault token review..."
+    kubectl create clusterrolebinding vault-token-reviewer \
+        --clusterrole=system:auth-delegator \
+        --serviceaccount=vault:vault > /dev/null 2>&1 || true
+    log_ok "Vault token reviewer RBAC configured"
+
     # Enable Kubernetes auth method if not already enabled
     if kubectl exec -n vault vault-0 -- env VAULT_TOKEN="$VAULT_TOKEN" vault auth list -format=json 2>/dev/null | grep -q "kubernetes"; then
         log_ok "Kubernetes auth method already enabled"
