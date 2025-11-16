@@ -409,13 +409,14 @@ EOF
     kubectl exec -n vault vault-0 -- env VAULT_TOKEN="$VAULT_TOKEN" \
         vault delete auth/kubernetes/role/external-secrets > /dev/null 2>&1 || true
 
-    # Configure the role - audience parameter is optional and can be empty
-    # We don't set audience to allow any JWT without specific audience validation
+    # Configure the role with audience=vault for External Secrets Operator JWT validation
+    # This ensures the Kubernetes auth method validates JWT audience claim
     kubectl exec -n vault vault-0 -- env VAULT_TOKEN="$VAULT_TOKEN" \
         vault write auth/kubernetes/role/external-secrets \
         bound_service_account_names=external-secrets-operator \
         bound_service_account_namespaces=external-secrets \
         policies=external-secrets \
+        audience=vault \
         ttl=24h > /dev/null 2>&1
     if [ $? -eq 0 ]; then
         log_ok "Kubernetes auth role created"

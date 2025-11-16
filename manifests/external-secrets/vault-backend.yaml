@@ -23,3 +23,5 @@ spec:
           serviceAccountRef:
             name: external-secrets-operator
             namespace: external-secrets
+            audiences:
+              - vault
