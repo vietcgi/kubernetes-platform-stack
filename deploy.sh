@@ -448,6 +448,25 @@ EOF
     else
         log_warn "Vault pod restart may have timed out but continuing deployment"
     fi
+
+    # CRITICAL: After pod restart, Vault becomes sealed. Unseal it using the stored unseal key.
+    # The pod restart doesn't trigger auto-unsealing, so we must do it manually.
+    log_info "Unsealing Vault after pod restart..."
+    UNSEAL_KEY=$(kubectl get secret -n vault vault-unseal-keys -o jsonpath='{.data.unseal_key}' 2>/dev/null | base64 -d 2>/dev/null)
+    if [ -n "$UNSEAL_KEY" ]; then
+        for i in {1..30}; do
+            if kubectl exec -n vault vault-0 -- vault operator unseal "$UNSEAL_KEY" > /dev/null 2>&1; then
+                log_ok "Vault unsealed successfully after pod restart"
+                break
+            fi
+            if [ $i -eq 30 ]; then
+                log_warn "Failed to unseal Vault after pod restart, continuing anyway"
+            fi
+            sleep 1
+        done
+    else
+        log_warn "Unseal key not found in vault-unseal-keys secret"
+    fi
 }
 
 # Setup demo credentials in Vault
