@@ -215,7 +215,8 @@ setup_vault_init() {
     # Vault can be Running but the HTTP server may not be ready yet
     log_info "Waiting for Vault HTTP API to be ready..."
     for i in {1..120}; do
-        VAULT_STATUS=$(kubectl exec -n vault vault-0 -- vault status -format=json 2>/dev/null | jq -r '.initialized' 2>/dev/null)
+        # Use grep instead of jq because Vault's JSON output has parsing issues with jq
+        VAULT_STATUS=$(kubectl exec -n vault vault-0 -- vault status -format=json 2>/dev/null | grep -o '"initialized":[^,]*' | cut -d: -f2 2>/dev/null)
         if [ "$VAULT_STATUS" = "true" ] || [ "$VAULT_STATUS" = "false" ]; then
             log_ok "Vault HTTP API is responding"
             break
